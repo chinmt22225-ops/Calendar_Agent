@@ -31,7 +31,7 @@ Calendar_Agent/
 └── README.md
 ```
 
-> `supabase/schema.sql` sẽ được viết và triển khai sau khi Supabase project mới được cung cấp, theo quyết định của chủ dự án.
+Database schema, indexes, triggers và RLS nằm trong `supabase/schema.sql`. Migration tương ứng nằm trong `supabase/migrations` và được quản lý bằng Supabase CLI.
 
 ## Chạy local
 
@@ -102,6 +102,21 @@ Tình trạng kiểm thử hiện tại:
 - Backend: `3 passed`.
 - Frontend: TypeScript check và production build thành công.
 
+## Triển khai database
+
+Tạo `supabase/.env` từ `supabase/.env.example`, sau đó:
+
+```powershell
+$values = Get-Content supabase/.env | ConvertFrom-StringData
+$env:SUPABASE_ACCESS_TOKEN = $values.SUPABASE_ACCESS_TOKEN
+$env:SUPABASE_DB_PASSWORD = $values.SUPABASE_DB_PASSWORD
+npx --yes supabase@latest link --project-ref <project-ref>
+npx --yes supabase@latest db push --dry-run
+npx --yes supabase@latest db push
+```
+
+Không commit `supabase/.env`; file này chứa quyền quản trị project và mật khẩu database.
+
 ## API chính
 
 - `GET /health`
@@ -114,4 +129,3 @@ Tình trạng kiểm thử hiện tại:
 - `POST /api/chat/stream`
 - `GET /api/chat/conversations`
 - `GET /api/chat/conversations/{id}`
-
