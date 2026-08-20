@@ -2,11 +2,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import * as eventsApi from '../api/events'
 import type { CalendarEvent, EventDraft } from '../types/calendar'
 import { useAuth } from './AuthContext'
+import { useToast } from './ToastContext'
 
 type CalendarContextValue = {
   events: CalendarEvent[]
   loading: boolean
   categories: string[]
+  categoryColors: Record<string, string>
   refresh: () => Promise<void>
   create: (event: EventDraft) => Promise<CalendarEvent>
   update: (id: string, changes: Partial<EventDraft>) => Promise<CalendarEvent>
@@ -17,18 +19,20 @@ const CalendarContext = createContext<CalendarContextValue | null>(null)
 
 export function CalendarProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
+  const notify = useToast()
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!user) return
     setLoading(true)
-    try {
-      setEvents(await eventsApi.fetchEvents())
+    try { setEvents(await eventsApi.fetchEvents()) }
+    catch (error) {
+      notify(error instanceof Error ? error.message : 'Không thể tải lịch. Vui lòng thử lại.')
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [notify, user])
 
   useEffect(() => { void refresh() }, [refresh])
 
@@ -36,6 +40,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     events,
     loading,
     categories: [...new Set(events.map((event) => event.category))],
+    categoryColors: Object.fromEntries(events.map((event) => [event.category, event.color])),
     refresh,
     create: async (draft) => {
       const created = await eventsApi.createEvent(draft)
@@ -61,4 +66,3 @@ export function useCalendar() {
   if (!context) throw new Error('useCalendar must be used inside CalendarProvider')
   return context
 }
-

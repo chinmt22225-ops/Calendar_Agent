@@ -14,8 +14,16 @@ api.interceptors.request.use(async (config) => {
   return config
 })
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const detail = error?.response?.data?.detail
+    if (detail) error.message = typeof detail === 'string' ? detail : 'Yêu cầu không hợp lệ.'
+    return Promise.reject(error)
+  },
+)
+
 export async function getAccessToken() {
   const { data } = await supabase.auth.getSession()
   return data.session?.access_token ?? ''
 }
-

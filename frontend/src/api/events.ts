@@ -20,3 +20,16 @@ export async function deleteEvent(id: string) {
   await api.delete(`/events/${id}`)
 }
 
+export async function fetchTrash() {
+  const { data } = await api.get<CalendarEvent[]>('/events/trash')
+  return data
+}
+
+export async function restoreEvent(id: string) {
+  const { data } = await api.post<CalendarEvent>(`/events/${id}/restore`)
+  return data
+}
+
+export async function permanentlyDeleteEvent(id: string) {
+  await api.delete(`/events/${id}/permanent`)
+}

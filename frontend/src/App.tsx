@@ -1,29 +1,30 @@
-import { lazy, Suspense, useState } from 'react'
-import { ChatView } from './components/chat/ChatView'
+import { lazy, Suspense, useEffect } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { LoginView } from './components/auth/LoginView'
-import { Navbar, type AppView } from './components/Navbar'
+import { ChatView } from './components/chat/ChatView'
+import { Navbar } from './components/Navbar'
 import { useAuth } from './context/AuthContext'
 import { CalendarProvider } from './context/CalendarContext'
+import { ProfileProvider } from './context/ProfileContext'
 
 const CalendarView = lazy(() => import('./components/calendar/CalendarView').then((module) => ({ default: module.CalendarView })))
 
-function LoadingScreen() {
-  return <main className="loading-screen"><span className="brand-mark large">✦</span><p>Đang mở lịch của bạn...</p></main>
+function LoadingScreen() { return <main className="loading-screen"><span className="brand-mark large">✦</span><p>Đang mở lịch của bạn...</p></main> }
+
+function AuthenticatedApp() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  useEffect(() => { document.title = location.pathname.startsWith('/calendar') ? 'Lịch của tôi · Planora' : 'Trợ lý AI · Planora' }, [location.pathname])
+  return <CalendarProvider><ProfileProvider><div className="app-shell"><Navbar /><Routes>
+    <Route path="/chat" element={<ChatView onViewCalendar={() => navigate('/calendar')} />} />
+    <Route path="/calendar" element={<Suspense fallback={<LoadingScreen />}><CalendarView /></Suspense>} />
+    <Route path="*" element={<Navigate to="/chat" replace />} />
+  </Routes></div></ProfileProvider></CalendarProvider>
 }
 
 export default function App() {
   const { user, loading } = useAuth()
-  const [view, setView] = useState<AppView>('chat')
   if (loading) return <LoadingScreen />
   if (!user) return <LoginView />
-  return (
-    <CalendarProvider>
-      <div className="app-shell">
-        <Navbar view={view} onChange={setView} />
-        {view === 'chat' ? <ChatView onViewCalendar={() => setView('calendar')} /> : (
-          <Suspense fallback={<LoadingScreen />}><CalendarView /></Suspense>
-        )}
-      </div>
-    </CalendarProvider>
-  )
+  return <AuthenticatedApp />
 }

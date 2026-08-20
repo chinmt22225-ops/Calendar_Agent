@@ -18,6 +18,10 @@ class ChatRequest(BaseModel):
     conversation_id: UUID | None = None
 
 
+class ConversationUpdate(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+
+
 class CalendarAction(BaseModel):
     type: Literal["created", "updated", "deleted", "found"]
     label: str
@@ -28,4 +32,3 @@ class ChatResponse(BaseModel):
     conversation_id: UUID
     message: Message
     actions: list[CalendarAction] = Field(default_factory=list)
-

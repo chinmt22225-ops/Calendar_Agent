@@ -1,7 +1,8 @@
 import { CalendarClock, ClipboardList, Clock3, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { fetchConversation, fetchConversations, streamMessage } from '../../api/chat'
+import { deleteConversation, fetchConversation, fetchConversations, renameConversation, streamMessage } from '../../api/chat'
 import { useCalendar } from '../../context/CalendarContext'
+import { useToast } from '../../context/ToastContext'
 import type { CalendarAction, ChatMessage, Conversation } from '../../types/chat'
 import { ChatInput } from './ChatInput'
 import { ChatSidebar } from './ChatSidebar'
@@ -22,6 +23,7 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
   const [streaming, setStreaming] = useState(false)
   const [suggestion, setSuggestion] = useState('')
   const { refresh } = useCalendar()
+  const notify = useToast()
   const endRef = useRef<HTMLDivElement>(null)
 
   const loadConversations = async () => {
@@ -35,8 +37,20 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
     setConversationId(id)
     try { setMessages(await fetchConversation(id)) } catch { setMessages([]) }
   }
+  const rename = async (conversation: Conversation) => {
+    const title = window.prompt('Tên mới cho cuộc hội thoại:', conversation.title)?.trim()
+    if (!title || title === conversation.title) return
+    try { await renameConversation(conversation.id, title); await loadConversations() }
+    catch (error) { notify(error instanceof Error ? error.message : 'Không thể đổi tên cuộc hội thoại.') }
+  }
+  const removeConversation = async (conversation: Conversation) => {
+    if (!window.confirm(`Xóa cuộc hội thoại “${conversation.title}”?`)) return
+    try { await deleteConversation(conversation.id); if (conversationId === conversation.id) newChat(); await loadConversations() }
+    catch (error) { notify(error instanceof Error ? error.message : 'Không thể xóa cuộc hội thoại.') }
+  }
   const send = async (content: string) => {
     if (streaming) return
+    const existingConversationId = conversationId
     const userMessage: ChatMessage = { id: crypto.randomUUID(), role: 'user', content }
     const assistantId = crypto.randomUUID()
     setMessages((current) => [...current, userMessage, { id: assistantId, role: 'assistant', content: '' }])
@@ -49,6 +63,7 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
       })
       await Promise.all([loadConversations(), refresh()])
     } catch (reason) {
+      if (!existingConversationId) setConversationId(null)
       const content = reason instanceof Error ? reason.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.'
       setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, content } : item))
     } finally { setStreaming(false) }
@@ -57,7 +72,7 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
   return (
     <div className="chat-shell">
       <ChatSidebar open={sidebarOpen} conversations={conversations} activeId={conversationId}
-        onToggle={() => setSidebarOpen((value) => !value)} onNew={newChat} onSelect={(id) => void selectConversation(id)} />
+        onToggle={() => setSidebarOpen((value) => !value)} onNew={newChat} onSelect={(id) => void selectConversation(id)} onRename={(item) => void rename(item)} onDelete={(item) => void removeConversation(item)} />
       <section className="chat-main">
         <div className="chat-scroll">
           {messages.length === 0 ? (
@@ -66,7 +81,7 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
               <h1>Xin chào! Hôm nay bạn muốn<br />sắp xếp lịch học gì?</h1>
               <p>Mình có thể tìm giờ trống, lên kế hoạch ôn tập hoặc điều chỉnh lịch giúp bạn.</p>
               <div className="prompt-grid">
-                {prompts.map(({ icon: Icon, text }) => <button key={text} onClick={() => setSuggestion(text)}><Icon size={18} /><span>{text}</span></button>)}
+                {prompts.map(({ icon: Icon, text }) => <button key={text} onClick={() => void send(text)}><Icon size={18} /><span>{text}</span></button>)}
               </div>
             </div>
           ) : <MessageList messages={messages} streaming={streaming} onViewCalendar={onViewCalendar} />}
@@ -77,4 +92,3 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
     </div>
   )
 }
-

@@ -30,7 +30,7 @@ def find_free_slots(
     events: Iterable[dict],
     target_date: date,
     duration_minutes: int,
-    timezone: str = "Asia/Bangkok",
+    timezone: str = "Asia/Ho_Chi_Minh",
     day_start: time = time(7, 0),
     day_end: time = time(22, 0),
     step_minutes: int = 30,
@@ -60,8 +60,10 @@ def distribute_study_sessions(
     exam_date: date,
     total_hours: float,
     session_duration: int,
-    timezone: str = "Asia/Bangkok",
+    timezone: str = "Asia/Ho_Chi_Minh",
     today: date | None = None,
+    day_start: time = time(7, 0),
+    day_end: time = time(22, 0),
 ) -> list[dict]:
     if total_hours <= 0 or session_duration <= 0:
         raise ValueError("Thời lượng học phải lớn hơn 0")
@@ -73,7 +75,7 @@ def distribute_study_sessions(
     candidates: list[dict] = []
     day = start_day
     while day < exam_date and remaining > 0:
-        slots = find_free_slots(events, day, session_duration, timezone)
+        slots = find_free_slots(events, day, session_duration, timezone, day_start, day_end)
         if slots:
             preferred = next(
                 (slot for slot in slots if 18 <= _as_datetime(slot["start"]).hour <= 20),
@@ -101,4 +103,3 @@ def _as_datetime(value: datetime | str) -> datetime:
     if isinstance(value, datetime):
         return value
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
-

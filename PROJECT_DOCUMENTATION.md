@@ -69,12 +69,14 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 - Màn hình chào tối giản và bốn prompt gợi ý.
 - Sidebar lịch sử hội thoại có thể thu gọn.
 - Tạo cuộc hội thoại mới và mở lại hội thoại cũ.
+- Đổi tên hoặc xóa cuộc hội thoại từ sidebar; tiêu đề mới được Gemini tạo một lần sau tin nhắn đầu tiên.
 - Textarea tự tăng chiều cao và gửi bằng phím Enter.
-- Phản hồi hiển thị dần qua Server-Sent Events.
+- Streaming token thật từ Gemini qua Server-Sent Events; lịch sử được gửi đúng cấu trúc role/content.
 - Render Markdown trong câu trả lời AI.
 - Inline action pill báo sự kiện được tạo, sửa, xóa hoặc slot rảnh được tìm thấy.
 - Chuyển thẳng sang Calendar từ action pill.
 - Lưu tin nhắn và metadata hành động vào Supabase.
+- Chỉ lưu cặp tin nhắn sau khi stream hoàn tất và giới hạn 10 yêu cầu AI/phút/người dùng.
 
 ### 3.3. Calendar
 
@@ -84,10 +86,15 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 - Xem và sửa sự kiện bằng modal.
 - Kéo thả sự kiện để đổi thời gian.
 - Resize sự kiện để đổi thời lượng.
-- Xóa sự kiện.
+- Xóa mềm sự kiện vào Thùng rác, khôi phục hoặc xóa vĩnh viễn.
 - Lọc sự kiện theo môn học hoặc danh mục.
-- Chọn nhanh ngày bằng date picker.
-- Hiển thị màu và đánh dấu sự kiện do AI tạo.
+- Mini-calendar 7×6 có điều hướng tháng, ngày hiện tại và ngày được chọn.
+- Sự kiện cả ngày và chuỗi lặp hằng ngày, hằng tuần hoặc hằng tháng.
+- Hiển thị giờ, màu danh mục lấy từ dữ liệu thật, badge AI, tooltip và trạng thái hoàn thành.
+- Panel Tasks ngay trong Calendar sidebar.
+- Settings cho tên, múi giờ, giờ học và Pomodoro; toggle Sáng/Tối lưu lựa chọn.
+- Badge trong ứng dụng đếm các sự kiện bắt đầu trong 24 giờ tới.
+- URL riêng `/chat` và `/calendar` cùng tiêu đề browser tab động.
 
 ### 3.4. Lập lịch thông minh / Smart Scheduling
 
@@ -101,7 +108,7 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 
 ### English Summary
 
-The implemented product includes Google OAuth, JWT-protected APIs, persistent conversations, Gemini tool calling, SSE-style response rendering, full calendar CRUD, drag-and-drop editing, category filtering, conflict prevention, free-slot search, and automated study-session distribution.
+The implemented product includes Google OAuth, JWT-protected APIs, persistent and manageable conversations, native Gemini streaming/tool calling, recurring and all-day events, recoverable deletion, study tasks, profile settings, light/dark themes, in-app upcoming-event badges, conflict prevention, free-slot search, and automated study-session distribution.
 
 ---
 
@@ -376,7 +383,7 @@ The scheduling engine normalizes events to the user's timezone, merges overlappi
 |---|---|---|
 | `id` | uuid | Same ID as `auth.users.id` |
 | `display_name` | text | User display name |
-| `timezone` | text | Default: Asia/Bangkok |
+| `timezone` | text | Default: Asia/Ho_Chi_Minh |
 | `day_start` | time | Preferred day start |
 | `day_end` | time | Preferred day end |
 | `pomodoro_minutes` | integer | Preferred focus duration |
@@ -387,24 +394,29 @@ A trigger automatically inserts a profile after a new Supabase Auth user is crea
 
 ### 10.2. events
 
-Stores title, description, start/end timestamps, color, category, status, AI-generated flag, optional recurrence rule, and audit timestamps.
+Stores title, description, start/end timestamps, color, category, status, AI-generated flag, `all_day`, recurrence frequency/end date, `deleted_at`, and audit timestamps.
 
 Important constraints:
 
 - End must be after start.
 - Color must be a valid six-digit hex value.
 - Status must be `scheduled`, `completed`, or `cancelled`.
-- Scheduled events belonging to the same user cannot overlap.
+- Recurrence must be `daily`, `weekly`, or `monthly` and requires an inclusive end date.
+- Active scheduled base events belonging to the same user cannot overlap; the API also checks expanded recurring instances.
 
 ### 10.3. study_tasks
 
 Stores study goals with subject, estimated hours, deadline, priority, and status.
 
-### 10.4. chat_messages
+### 10.4. conversations
+
+Stores a user-owned conversation title and creation/update timestamps. Deleting a conversation cascades to its messages.
+
+### 10.5. chat_messages
 
 Stores messages with user ID, conversation ID, role, content, JSON metadata, and creation timestamp. Calendar actions are stored in `metadata.actions`.
 
-### 10.5. Indexes
+### 10.6. Indexes
 
 Indexes cover:
 
@@ -426,6 +438,7 @@ Each table has explicit policies for `SELECT`, `INSERT`, `UPDATE`, and `DELETE`.
 profiles.id          = auth.uid()
 events.user_id       = auth.uid()
 study_tasks.user_id  = auth.uid()
+conversations.user_id = auth.uid()
 chat_messages.user_id = auth.uid()
 ```
 
@@ -443,7 +456,10 @@ All `/api/*` endpoints require a valid Supabase user JWT unless stated otherwise
 | GET | `/api/events` | List user events |
 | POST | `/api/events` | Create an event |
 | PATCH | `/api/events/{event_id}` | Update an event |
-| DELETE | `/api/events/{event_id}` | Delete an event |
+| DELETE | `/api/events/{event_id}` | Move an event to Trash |
+| GET | `/api/events/trash` | List deleted events |
+| POST | `/api/events/{event_id}/restore` | Restore an event |
+| DELETE | `/api/events/{event_id}/permanent` | Permanently delete a trashed event |
 | GET | `/api/tasks` | List study tasks |
 | POST | `/api/tasks` | Create a study task |
 | PATCH | `/api/tasks/{task_id}` | Update a study task |
@@ -452,6 +468,8 @@ All `/api/*` endpoints require a valid Supabase user JWT unless stated otherwise
 | PATCH | `/api/profile` | Create or update profile |
 | GET | `/api/chat/conversations` | List conversations |
 | GET | `/api/chat/conversations/{id}` | Load conversation messages |
+| PATCH | `/api/chat/conversations/{id}` | Rename a conversation |
+| DELETE | `/api/chat/conversations/{id}` | Delete a conversation and its messages |
 | POST | `/api/chat` | Send a regular chat request |
 | POST | `/api/chat/stream` | Send a chat request and receive SSE events |
 
@@ -460,6 +478,7 @@ All `/api/*` endpoints require a valid Supabase user JWT unless stated otherwise
 - `start`: contains the conversation ID.
 - `token`: contains a text fragment.
 - `actions`: contains calendar action metadata.
+- `error`: contains a safe user-facing Gemini/API error.
 - `done`: marks the end of the stream.
 
 ---
@@ -590,13 +609,15 @@ Supabase Auth must have Google enabled, the same Client ID/Secret, Site URL `htt
 - FastAPI health endpoint.
 - Free-slot calculation avoids busy events.
 - Returned slot duration matches the request.
+- Daily/monthly recurrence expansion and recurring conflict detection.
+- Sliding-window rate limiting.
 - Frontend TypeScript compilation.
 - Vite production build.
 
 Current backend result:
 
 ```text
-3 passed
+7 passed
 ```
 
 ### Live Integration Tests
@@ -616,7 +637,8 @@ The implementation was also validated against the hosted Supabase and Gemini ser
 - Overlapping event insertion was blocked with PostgreSQL code `23P01`.
 - FastAPI health confirmed Supabase and Gemini configuration.
 - FastAPI event create/list/delete succeeded using a real user JWT.
-- Gemini chat returned a real answer without unintended calendar mutation.
+- Recurrence conflict, soft-delete, Trash restore/permanent delete, task CRUD, and profile preferences passed through the live API.
+- Native Gemini SSE streaming, generated conversation title, rename, and delete passed through the live API.
 - All temporary test users and events were deleted after validation.
 - Root `npm run dev` started both services successfully.
 - Frontend returned HTTP 200 on port 5173.
@@ -647,6 +669,7 @@ The implementation was also validated against the hosted Supabase and Gemini ser
 | `52fc695` | Initial full-stack AI Calendar Agent foundation |
 | `62804a6` | Supabase schema, migration, RLS, and Google Auth configuration |
 | `ce50932` | One-command frontend/backend development workflow |
+| `f167eb0` | Complete bilingual project documentation |
 
 The main branch tracks:
 
@@ -666,6 +689,9 @@ The main branch tracks:
 - Smart scheduling and conflict prevention.
 - Minimal chat interface.
 - Interactive calendar interface.
+- Recurrence, all-day events, Tasks, Trash, event completion and in-app badge.
+- Settings, profile-aware scheduling, persistent light/dark theme and URL routing.
+- Native Gemini streaming, rate limiting, generated titles and conversation management.
 - One-command local development.
 - Backend tests and production frontend build.
 - Live Supabase/Gemini integration validation.
@@ -674,16 +700,11 @@ The main branch tracks:
 ### Hạn chế hiện tại / Current Limitations
 
 - The calendar is Google Calendar-inspired but does **not** synchronize with the external Google Calendar API.
-- `recurrence_rule` is stored but recurring instances are not expanded or edited as a series.
-- SSE text fragments are emitted after the Gemini/tool execution completes; this is smooth progressive rendering, not native token streaming from Gemini.
-- Conversation rename, search, and delete controls are not implemented.
-- Study-task management exists in the backend API but does not yet have a dedicated frontend page.
-- Profile preferences exist in the API but do not yet have a settings interface.
 - The mobile layout hides the Calendar sidebar and does not yet provide a dedicated mobile filter drawer.
 - Automated frontend component and end-to-end browser tests are not yet included.
 - The root development command currently targets Windows virtual-environment paths.
 - Production hosting, custom domains, production OAuth origins, CI/CD, monitoring, and backups are not configured.
-- The application does not yet send reminders or notifications.
+- The application intentionally uses an in-app upcoming-event badge; browser push/email reminders are not included.
 
 ---
 
@@ -691,18 +712,16 @@ The main branch tracks:
 
 ### Near Term
 
-- Add frontend pages for Study Tasks and Profile preferences.
-- Add conversation rename/delete/search.
+- Add conversation search.
 - Add frontend component tests and Playwright end-to-end tests.
-- Add native Gemini streaming where compatible with tool execution.
 - Add a mobile Calendar filter drawer.
-- Add user-facing error toasts and retry actions.
+- Add retry actions to existing user-facing error toasts.
 - Add production deployment configuration and CI checks.
 
 ### Medium Term
 
-- Implement recurring event expansion and series editing.
-- Add notifications and study reminders.
+- Add per-occurrence exceptions for recurring series.
+- Optionally add study reminders beyond the current in-app badge.
 - Add analytics for study hours, completion, and subject balance.
 - Add configurable working hours and preferred study windows to scheduling logic.
 - Add approval/preview mode before AI applies multiple calendar changes.

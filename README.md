@@ -11,11 +11,14 @@ See [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for the complete biling
 ## Tính năng hiện có
 
 - Supabase Google OAuth và xác thực JWT ở FastAPI.
-- Chat tối giản với lịch sử hội thoại, phản hồi streaming và thông báo hành động lịch ngay trong câu trả lời.
+- Chat tối giản với Gemini streaming thật, lịch sử đúng role, đổi tên/xóa hội thoại và tiêu đề do Gemini tạo.
 - Gemini function calling cho đọc lịch, tạo một/nhiều sự kiện, dời, xóa, tìm giờ trống và tự động phân bổ buổi ôn tập.
-- Calendar tháng/tuần/ngày/lịch biểu, vạch giờ hiện tại, tạo nhanh, kéo thả và resize sự kiện.
+- Calendar tháng/tuần/ngày/lịch biểu, mini-calendar, sự kiện cả ngày, recurrence ngày/tuần/tháng, kéo thả và resize.
 - Lọc lịch theo môn học/danh mục và đồng bộ dữ liệu tức thời giữa Chat và Calendar.
 - Kiểm tra xung đột thời gian ở cả REST API và công cụ AI.
+- Tasks trong sidebar, Thùng rác khôi phục/xóa vĩnh viễn, trạng thái hoàn thành và badge sự kiện 24 giờ tới.
+- Settings hồ sơ, lịch AI tôn trọng giờ học, URL `/chat`/`/calendar`, giao diện Sáng/Tối được lưu.
+- Rate limit 10 yêu cầu AI/phút/người dùng và toast lỗi thân thiện.
 
 ## Cấu trúc
 
@@ -73,7 +76,7 @@ SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 GEMINI_API_KEY=<gemini-api-key>
 GEMINI_MODEL=gemini-3.6-flash
-DEFAULT_TIMEZONE=Asia/Bangkok
+DEFAULT_TIMEZONE=Asia/Ho_Chi_Minh
 ```
 
 Không đưa `SUPABASE_SERVICE_ROLE_KEY` hoặc `GEMINI_API_KEY` vào frontend hay commit lên Git.
@@ -117,7 +120,7 @@ npm run build
 
 Tình trạng kiểm thử hiện tại:
 
-- Backend: `3 passed`.
+- Backend: `7 passed`.
 - Frontend: TypeScript check và production build thành công.
 
 ## Triển khai database
@@ -140,6 +143,9 @@ Không commit `supabase/.env`; file này chứa quyền quản trị project và
 - `GET /health`
 - `GET|POST /api/events`
 - `PATCH|DELETE /api/events/{id}`
+- `GET /api/events/trash`
+- `POST /api/events/{id}/restore`
+- `DELETE /api/events/{id}/permanent`
 - `GET|POST /api/tasks`
 - `PATCH|DELETE /api/tasks/{id}`
 - `GET|PATCH /api/profile`
@@ -147,3 +153,4 @@ Không commit `supabase/.env`; file này chứa quyền quản trị project và
 - `POST /api/chat/stream`
 - `GET /api/chat/conversations`
 - `GET /api/chat/conversations/{id}`
+- `PATCH|DELETE /api/chat/conversations/{id}`

@@ -11,6 +11,15 @@ export async function fetchConversation(id: string) {
   return data
 }
 
+export async function renameConversation(id: string, title: string) {
+  const { data } = await api.patch<Conversation>(`/chat/conversations/${id}`, { title })
+  return data
+}
+
+export async function deleteConversation(id: string) {
+  await api.delete(`/chat/conversations/${id}`)
+}
+
 export async function streamMessage(
   message: string,
   conversationId: string | null,
@@ -45,7 +54,7 @@ export async function streamMessage(
       if (payload.type === 'start') handlers.onStart(payload.conversation_id)
       if (payload.type === 'token') handlers.onToken(payload.content)
       if (payload.type === 'actions') handlers.onActions(payload.actions)
+      if (payload.type === 'error') throw new Error(payload.detail || 'Trợ lý AI gặp lỗi.')
     }
   }
 }
-
