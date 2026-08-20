@@ -14,6 +14,7 @@ from supabase import Client
 
 from agent.tools import CalendarTools
 from config import get_settings
+from models.chat import ChatImage
 
 
 logger = logging.getLogger(__name__)
@@ -62,8 +63,8 @@ class CalendarAgentSession:
             temperature=0.2,
         )
 
-    def run(self, prompt: str) -> str:
-        contents = [*self.contents, _user_content(prompt)]
+    def run(self, prompt: str, images: list[ChatImage] | None = None) -> str:
+        contents = [*self.contents, _user_content(prompt, images or [])]
         try:
             response = self.client.models.generate_content(
                 model=self.settings.gemini_model,
@@ -74,8 +75,8 @@ class CalendarAgentSession:
         except Exception as exc:
             raise _agent_error(exc) from exc
 
-    async def stream(self, prompt: str) -> AsyncIterator[str]:
-        contents = [*self.contents, _user_content(prompt)]
+    async def stream(self, prompt: str, images: list[ChatImage] | None = None) -> AsyncIterator[str]:
+        contents = [*self.contents, _user_content(prompt, images or [])]
         try:
             stream = await self.client.aio.models.generate_content_stream(
                 model=self.settings.gemini_model,
@@ -94,9 +95,10 @@ def run_calendar_agent(
     user_id: UUID,
     supabase: Client,
     history: list[dict] | None = None,
+    images: list[ChatImage] | None = None,
 ) -> tuple[str, list[dict]]:
     session = CalendarAgentSession(user_id, supabase, history)
-    return session.run(prompt), session.actions
+    return session.run(prompt, images), session.actions
 
 
 def generate_conversation_title(message: str) -> str:
@@ -130,8 +132,18 @@ def _history_contents(history: list[dict]) -> list[types.Content]:
     return contents
 
 
-def _user_content(prompt: str) -> types.Content:
-    return types.Content(role="user", parts=[types.Part(text=prompt)])
+def _user_content(prompt: str, images: list[ChatImage]) -> types.Content:
+    parts: list[types.Part] = []
+    clean_prompt = prompt.strip()
+    if clean_prompt:
+        parts.append(types.Part(text=clean_prompt))
+    else:
+        parts.append(types.Part(text="Hãy phân tích ảnh đính kèm và hỗ trợ theo ngữ cảnh lịch học."))
+    parts.extend(
+        types.Part.from_bytes(data=image.as_bytes(), mime_type=image.mime_type)
+        for image in images
+    )
+    return types.Content(role="user", parts=parts)
 
 
 def _fallback_title(message: str) -> str:

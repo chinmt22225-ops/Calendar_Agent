@@ -1,4 +1,4 @@
-import type { CalendarAction, ChatMessage, Conversation } from '../types/chat'
+import type { CalendarAction, ChatImagePayload, ChatMessage, Conversation } from '../types/chat'
 import { api, getAccessToken } from './client'
 
 export async function fetchConversations() {
@@ -23,6 +23,7 @@ export async function deleteConversation(id: string) {
 export async function streamMessage(
   message: string,
   conversationId: string | null,
+  images: ChatImagePayload[],
   handlers: {
     onStart: (conversationId: string) => void
     onToken: (token: string) => void
@@ -33,7 +34,7 @@ export async function streamMessage(
   const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ message, conversation_id: conversationId }),
+    body: JSON.stringify({ message, conversation_id: conversationId, images }),
   })
   if (!response.ok || !response.body) {
     const detail = await response.json().catch(() => ({ detail: 'Không thể kết nối với trợ lý AI.' }))

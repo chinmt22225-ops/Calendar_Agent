@@ -70,7 +70,12 @@ def verify() -> None:
 
             conversation_id = None
             stream_ok = False
-            with api.stream("POST", "/chat/stream", json={"message": "Chào bạn, hãy trả lời một câu thật ngắn.", "conversation_id": None}) as response:
+            one_pixel_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+            with api.stream("POST", "/chat/stream", json={
+                "message": "Hãy xác nhận ngắn gọn rằng bạn đã nhận được ảnh.",
+                "conversation_id": None,
+                "images": [{"mime_type": "image/png", "data": one_pixel_png}],
+            }) as response:
                 response.raise_for_status()
                 for line in response.iter_lines():
                     if not line.startswith("data: "):
@@ -85,6 +90,8 @@ def verify() -> None:
             assert stream_ok and conversation_id
             conversations = api.get("/chat/conversations"); conversations.raise_for_status()
             assert any(item["id"] == conversation_id for item in conversations.json())
+            messages = api.get(f"/chat/conversations/{conversation_id}"); messages.raise_for_status()
+            assert messages.json()[0]["metadata"]["image_count"] == 1
             assert api.patch(f"/chat/conversations/{conversation_id}", json={"title": "Đã đổi tên"}).status_code == 200
             assert api.delete(f"/chat/conversations/{conversation_id}").status_code == 204
     finally:

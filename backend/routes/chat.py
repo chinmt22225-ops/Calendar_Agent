@@ -46,6 +46,7 @@ def _persist_exchange(
     user_message: str,
     assistant_message: str,
     actions: list[dict],
+    image_count: int,
     user_id: UUID,
     client: Client,
 ) -> dict:
@@ -66,7 +67,7 @@ def _persist_exchange(
             "conversation_id": str(conversation_id),
             "role": "user",
             "content": user_message,
-            "metadata": {},
+            "metadata": {"image_count": image_count} if image_count else {},
         },
         {
             "user_id": str(user_id),
@@ -83,9 +84,10 @@ def _process_chat(payload: ChatRequest, user_id: UUID, client: Client) -> ChatRe
     is_new = payload.conversation_id is None
     conversation_id = payload.conversation_id or uuid4()
     history = [] if is_new else _load_history(conversation_id, user_id, client)
-    text, actions = run_calendar_agent(payload.message, user_id, client, history)
+    text, actions = run_calendar_agent(payload.message, user_id, client, history, payload.images)
+    stored_user_message = payload.message.strip() or f"[Đã gửi {len(payload.images)} ảnh]"
     stored = _persist_exchange(
-        conversation_id, is_new, payload.message, text, actions, user_id, client
+        conversation_id, is_new, stored_user_message, text, actions, len(payload.images), user_id, client
     )
     return ChatResponse(
         conversation_id=conversation_id,
@@ -195,7 +197,7 @@ async def stream_chat(
         try:
             session = CalendarAgentSession(user_id, client, history)
             parts: list[str] = []
-            async for token in session.stream(payload.message):
+            async for token in session.stream(payload.message, payload.images):
                 parts.append(token)
                 yield _sse({"type": "token", "content": token})
             text = "".join(parts).strip() or "Mình đã xử lý yêu cầu của bạn."
@@ -205,9 +207,10 @@ async def stream_chat(
                 _persist_exchange,
                 conversation_id,
                 is_new,
-                payload.message,
+                payload.message.strip() or f"[Đã gửi {len(payload.images)} ảnh]",
                 text,
                 session.actions,
+                len(payload.images),
                 user_id,
                 client,
             )

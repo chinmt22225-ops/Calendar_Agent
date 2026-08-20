@@ -8,8 +8,19 @@ export type ChatMessage = {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
-  metadata?: { actions?: CalendarAction[] }
+  metadata?: { actions?: CalendarAction[]; image_count?: number; image_previews?: string[] }
   created_at?: string
+}
+
+export type ChatImagePayload = {
+  mime_type: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+  data: string
+}
+
+export type ChatImageAttachment = ChatImagePayload & {
+  id: string
+  name: string
+  preview: string
 }
 
 export type Conversation = {
@@ -17,4 +28,3 @@ export type Conversation = {
   title: string
   updated_at: string
 }
-

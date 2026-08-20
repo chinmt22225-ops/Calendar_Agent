@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { deleteConversation, fetchConversation, fetchConversations, renameConversation, streamMessage } from '../../api/chat'
 import { useCalendar } from '../../context/CalendarContext'
 import { useToast } from '../../context/ToastContext'
-import type { CalendarAction, ChatMessage, Conversation } from '../../types/chat'
+import type { CalendarAction, ChatImageAttachment, ChatMessage, Conversation } from '../../types/chat'
 import { ChatInput } from './ChatInput'
 import { ChatSidebar } from './ChatSidebar'
 import { MessageList } from './MessageList'
@@ -48,15 +48,19 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
     try { await deleteConversation(conversation.id); if (conversationId === conversation.id) newChat(); await loadConversations() }
     catch (error) { notify(error instanceof Error ? error.message : 'Không thể xóa cuộc hội thoại.') }
   }
-  const send = async (content: string) => {
+  const send = async (content: string, images: ChatImageAttachment[] = []) => {
     if (streaming) return
     const existingConversationId = conversationId
-    const userMessage: ChatMessage = { id: crypto.randomUUID(), role: 'user', content }
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(), role: 'user',
+      content: content || `[Đã gửi ${images.length} ảnh]`,
+      metadata: images.length ? { image_count: images.length, image_previews: images.map((image) => image.preview) } : undefined,
+    }
     const assistantId = crypto.randomUUID()
     setMessages((current) => [...current, userMessage, { id: assistantId, role: 'assistant', content: '' }])
     setStreaming(true)
     try {
-      await streamMessage(content, conversationId, {
+      await streamMessage(content, conversationId, images.map(({ mime_type, data }) => ({ mime_type, data })), {
         onStart: setConversationId,
         onToken: (token) => setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, content: item.content + token } : item)),
         onActions: (actions: CalendarAction[]) => setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, metadata: { actions } } : item)),

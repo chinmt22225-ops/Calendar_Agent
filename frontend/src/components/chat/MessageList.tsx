@@ -14,6 +14,7 @@ export function MessageList({ messages, streaming, onViewCalendar }: {
         <article key={message.id} className={`message-row ${message.role}`}>
           {message.role === 'assistant' && <span className="assistant-avatar"><Bot size={16} /></span>}
           <div className="message-content">
+            {message.role === 'user' && message.metadata?.image_previews && <div className="sent-image-grid">{message.metadata.image_previews.map((preview, imageIndex) => <img key={`${message.id}-image-${imageIndex}`} src={preview} alt={`Ảnh đính kèm ${imageIndex + 1}`} />)}</div>}
             {message.role === 'assistant'
               ? <div className="markdown"><ReactMarkdown>{message.content || (streaming && index === messages.length - 1 ? ' ' : '')}</ReactMarkdown>{streaming && index === messages.length - 1 && <span className="typing-caret" />}</div>
               : <p>{message.content}</p>}
@@ -26,4 +27,3 @@ export function MessageList({ messages, streaming, onViewCalendar }: {
     </div>
   )
 }
-

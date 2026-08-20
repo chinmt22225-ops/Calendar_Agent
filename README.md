@@ -11,7 +11,7 @@ See [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for the complete biling
 ## Tính năng hiện có
 
 - Supabase Google OAuth và xác thực JWT ở FastAPI.
-- Chat tối giản với Gemini streaming thật, lịch sử đúng role, đổi tên/xóa hội thoại và tiêu đề do Gemini tạo.
+- Chat tối giản với Gemini streaming thật, dán/chọn tối đa 3 ảnh có preview, lịch sử đúng role, đổi tên/xóa hội thoại và tiêu đề do Gemini tạo.
 - Gemini function calling cho đọc lịch, tạo một/nhiều sự kiện, dời, xóa, tìm giờ trống và tự động phân bổ buổi ôn tập.
 - Calendar tháng/tuần/ngày/lịch biểu, mini-calendar, sự kiện cả ngày, recurrence ngày/tuần/tháng, kéo thả và resize.
 - Lọc lịch theo môn học/danh mục và đồng bộ dữ liệu tức thời giữa Chat và Calendar.
@@ -120,7 +120,7 @@ npm run build
 
 Tình trạng kiểm thử hiện tại:
 
-- Backend: `7 passed`.
+- Backend: `10 passed`.
 - Frontend: TypeScript check và production build thành công.
 
 ## Triển khai database

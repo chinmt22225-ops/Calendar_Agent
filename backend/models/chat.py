@@ -1,8 +1,10 @@
 from datetime import datetime
+import base64
+import binascii
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class Message(BaseModel):
@@ -13,9 +15,35 @@ class Message(BaseModel):
     created_at: datetime | None = None
 
 
+class ChatImage(BaseModel):
+    mime_type: Literal["image/jpeg", "image/png", "image/webp", "image/gif"]
+    data: str = Field(min_length=1, max_length=5_600_000)
+
+    @field_validator("data")
+    @classmethod
+    def validate_image_data(cls, value: str) -> str:
+        try:
+            decoded = base64.b64decode(value, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError("Dữ liệu ảnh không phải Base64 hợp lệ") from exc
+        if len(decoded) > 4 * 1024 * 1024:
+            raise ValueError("Mỗi ảnh không được vượt quá 4 MB")
+        return value
+
+    def as_bytes(self) -> bytes:
+        return base64.b64decode(self.data, validate=True)
+
+
 class ChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=12000)
+    message: str = Field(default="", max_length=12000)
     conversation_id: UUID | None = None
+    images: list[ChatImage] = Field(default_factory=list, max_length=3)
+
+    @model_validator(mode="after")
+    def validate_content(self):
+        if not self.message.strip() and not self.images:
+            raise ValueError("Tin nhắn cần có nội dung hoặc ít nhất một ảnh")
+        return self
 
 
 class ConversationUpdate(BaseModel):

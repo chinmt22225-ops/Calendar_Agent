@@ -71,6 +71,7 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 - Tạo cuộc hội thoại mới và mở lại hội thoại cũ.
 - Đổi tên hoặc xóa cuộc hội thoại từ sidebar; tiêu đề mới được Gemini tạo một lần sau tin nhắn đầu tiên.
 - Textarea tự tăng chiều cao và gửi bằng phím Enter.
+- Dán ảnh bằng Ctrl+V hoặc chọn JPG/PNG/WebP/GIF từ máy, xem trước và xóa trước khi gửi; ảnh chỉ được chuyển inline tới Gemini và không lưu vào Supabase.
 - Streaming token thật từ Gemini qua Server-Sent Events; lịch sử được gửi đúng cấu trúc role/content.
 - Render Markdown trong câu trả lời AI.
 - Inline action pill báo sự kiện được tạo, sửa, xóa hoặc slot rảnh được tìm thấy.
@@ -617,7 +618,7 @@ Supabase Auth must have Google enabled, the same Client ID/Secret, Site URL `htt
 Current backend result:
 
 ```text
-7 passed
+10 passed
 ```
 
 ### Live Integration Tests
@@ -639,6 +640,7 @@ The implementation was also validated against the hosted Supabase and Gemini ser
 - FastAPI event create/list/delete succeeded using a real user JWT.
 - Recurrence conflict, soft-delete, Trash restore/permanent delete, task CRUD, and profile preferences passed through the live API.
 - Native Gemini SSE streaming, generated conversation title, rename, and delete passed through the live API.
+- Multimodal image streaming passed with an inline PNG; the persisted message contained only `image_count`, not image bytes.
 - All temporary test users and events were deleted after validation.
 - Root `npm run dev` started both services successfully.
 - Frontend returned HTTP 200 on port 5173.

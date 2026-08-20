@@ -1,13 +1,35 @@
-import { ArrowUp, Paperclip } from 'lucide-react'
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { ArrowUp, ImagePlus, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type KeyboardEvent } from 'react'
+import type { ChatImageAttachment } from '../../types/chat'
+
+const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+const maxImages = 3
+const maxImageBytes = 4 * 1024 * 1024
+
+function readImage(file: File): Promise<ChatImageAttachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error(`Không thể đọc ảnh ${file.name}.`))
+    reader.onload = () => {
+      const preview = String(reader.result || '')
+      const data = preview.split(',', 2)[1]
+      if (!data) { reject(new Error(`Dữ liệu ảnh ${file.name} không hợp lệ.`)); return }
+      resolve({ id: crypto.randomUUID(), name: file.name || 'Ảnh từ clipboard', mime_type: file.type as ChatImageAttachment['mime_type'], data, preview })
+    }
+    reader.readAsDataURL(file)
+  })
+}
 
 export function ChatInput({ initialValue = '', disabled, onSend }: {
   initialValue?: string
   disabled: boolean
-  onSend: (value: string) => void
+  onSend: (value: string, images: ChatImageAttachment[]) => void
 }) {
   const [value, setValue] = useState(initialValue)
+  const [images, setImages] = useState<ChatImageAttachment[]>([])
+  const [attachmentError, setAttachmentError] = useState('')
   const textarea = useRef<HTMLTextAreaElement>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setValue(initialValue); textarea.current?.focus() }, [initialValue])
   useEffect(() => {
@@ -16,11 +38,40 @@ export function ChatInput({ initialValue = '', disabled, onSend }: {
     textarea.current.style.height = `${Math.min(textarea.current.scrollHeight, 160)}px`
   }, [value])
 
+  const addFiles = async (files: File[]) => {
+    if (disabled || files.length === 0) return
+    setAttachmentError('')
+    const remaining = maxImages - images.length
+    if (remaining <= 0) { setAttachmentError(`Mỗi tin nhắn chỉ được gửi tối đa ${maxImages} ảnh.`); return }
+    const accepted: File[] = []
+    for (const file of files.slice(0, remaining)) {
+      if (!allowedTypes.has(file.type)) { setAttachmentError('Chỉ hỗ trợ ảnh JPG, PNG, WebP hoặc GIF.'); continue }
+      if (file.size > maxImageBytes) { setAttachmentError(`Ảnh ${file.name} vượt quá 4 MB.`); continue }
+      accepted.push(file)
+    }
+    if (files.length > remaining) setAttachmentError(`Mỗi tin nhắn chỉ được gửi tối đa ${maxImages} ảnh.`)
+    try {
+      const loaded = await Promise.all(accepted.map(readImage))
+      setImages((current) => [...current, ...loaded].slice(0, maxImages))
+    }
+    catch (error) { setAttachmentError(error instanceof Error ? error.message : 'Không thể đọc ảnh.') }
+  }
+  const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    void addFiles(Array.from(event.target.files || []))
+    event.target.value = ''
+  }
+  const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedImages = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => Boolean(file))
+    if (pastedImages.length) { event.preventDefault(); void addFiles(pastedImages) }
+  }
   const submit = () => {
     const clean = value.trim()
-    if (!clean || disabled) return
-    onSend(clean)
-    setValue('')
+    if ((!clean && images.length === 0) || disabled) return
+    onSend(clean, images)
+    setValue(''); setImages([]); setAttachmentError('')
   }
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() }
@@ -28,14 +79,18 @@ export function ChatInput({ initialValue = '', disabled, onSend }: {
 
   return (
     <div className="input-wrap">
-      <div className="chat-input">
-        <button className="attach-button" title="Đính kèm"><Paperclip size={19} /></button>
-        <textarea ref={textarea} value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={onKeyDown}
-          placeholder="Nhắn cho trợ lý lịch học..." rows={1} disabled={disabled} />
-        <button className="send-button" onClick={submit} disabled={!value.trim() || disabled} title="Gửi"><ArrowUp size={19} /></button>
+      <div className="chat-input-block">
+        {images.length > 0 && <div className="image-preview-list">{images.map((image) => <figure key={image.id}><img src={image.preview} alt={image.name} /><button onClick={() => setImages((items) => items.filter((item) => item.id !== image.id))} title="Bỏ ảnh"><X size={13} /></button></figure>)}</div>}
+        <div className="chat-input">
+          <input ref={fileInput} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={onFileChange} disabled={disabled} />
+          <button className="attach-button" onClick={() => fileInput.current?.click()} title="Chọn ảnh từ máy" disabled={disabled}><ImagePlus size={19} /></button>
+          <textarea ref={textarea} value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={onKeyDown} onPaste={onPaste}
+            placeholder="Nhắn hoặc dán ảnh cho trợ lý..." rows={1} disabled={disabled} />
+          <button className="send-button" onClick={submit} disabled={(!value.trim() && images.length === 0) || disabled} title="Gửi"><ArrowUp size={19} /></button>
+        </div>
       </div>
-      <small>AI có thể mắc lỗi. Hãy kiểm tra lại thời gian quan trọng.</small>
+      {attachmentError && <span className="attachment-error">{attachmentError}</span>}
+      <small>Dán ảnh bằng Ctrl+V hoặc chọn từ máy · tối đa 3 ảnh, 4 MB/ảnh.</small>
     </div>
   )
 }
-
