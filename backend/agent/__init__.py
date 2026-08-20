@@ -1,0 +1,2 @@
+"""Gemini-powered calendar agent."""
+
