@@ -35,6 +35,18 @@ Database schema, indexes, triggers và RLS nằm trong `supabase/schema.sql`. Mi
 
 ## Chạy local
 
+### Chạy frontend và backend cùng lúc
+
+Từ thư mục gốc của dự án:
+
+```powershell
+cd D:\Calendar_Agent
+npm install
+npm run dev
+```
+
+Lệnh này mở đồng thời API tại `http://localhost:8000` và giao diện tại `http://localhost:5173`. Nhấn `Ctrl+C` để dừng cả hai.
+
 ### 1. Backend
 
 ```powershell
