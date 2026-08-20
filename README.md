@@ -2,6 +2,12 @@
 
 Trợ lý AI dành cho sinh viên: trò chuyện bằng ngôn ngữ tự nhiên để tìm giờ trống, tạo hoặc điều chỉnh lịch học, đồng thời quản lý lịch trực quan theo phong cách Google Calendar.
 
+## Tài liệu đầy đủ / Full Documentation
+
+Xem [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) để đọc tài liệu song ngữ từ tổng quan sản phẩm đến kiến trúc, database, API, AI tools, cài đặt, kiểm thử, bảo mật và roadmap.
+
+See [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for the complete bilingual guide covering product scope, architecture, database, APIs, AI tools, setup, testing, security, and roadmap.
+
 ## Tính năng hiện có
 
 - Supabase Google OAuth và xác thực JWT ở FastAPI.
