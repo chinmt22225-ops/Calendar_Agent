@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import argparse
+import base64
 import json
 import secrets
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
+from pathlib import Path
 
 import httpx
 from supabase import create_client
@@ -13,7 +17,7 @@ from supabase import create_client
 from config import get_settings
 
 
-def verify() -> None:
+def verify(schedule_image: Path | None = None, ai_pause_seconds: float = 65) -> None:
     settings = get_settings()
     admin = create_client(settings.supabase_url, settings.supabase_service_role_key)
     public = create_client(settings.supabase_url, settings.supabase_publishable_key)
@@ -38,7 +42,41 @@ def verify() -> None:
         end = f"{start_day.isoformat()}T09:00:00+07:00"
         repeat_end = (start_day + timedelta(days=2)).isoformat()
 
-        with httpx.Client(base_url="http://127.0.0.1:8000/api", headers=headers, timeout=90) as api:
+        with httpx.Client(base_url="http://127.0.0.1:8000/api", headers=headers, timeout=180) as api:
+            last_ai_started = 0.0
+
+            def ask_ai(message: str, images: list[dict] | None = None) -> dict:
+                nonlocal last_ai_started
+                remaining_pause = ai_pause_seconds - (time.monotonic() - last_ai_started)
+                if last_ai_started and remaining_pause > 0:
+                    time.sleep(remaining_pause)
+                last_ai_started = time.monotonic()
+                result = {"conversation_id": None, "text": "", "actions": [], "done": False}
+                with api.stream("POST", "/chat/stream", json={
+                    "message": message,
+                    "conversation_id": None,
+                    "images": images or [],
+                }) as response:
+                    response.raise_for_status()
+                    for line in response.iter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        payload = json.loads(line[6:])
+                        if payload["type"] == "start":
+                            result["conversation_id"] = payload["conversation_id"]
+                        elif payload["type"] == "token":
+                            result["text"] += payload["content"]
+                        elif payload["type"] == "actions":
+                            result["actions"] = payload["actions"]
+                        elif payload["type"] == "error":
+                            raise AssertionError(payload["detail"])
+                        elif payload["type"] == "done":
+                            result["done"] = True
+                assert result["done"] and result["conversation_id"]
+                assert result["text"].strip()
+                assert result["text"].strip() != "Mình đã xử lý yêu cầu của bạn."
+                return result
+
             profile = api.get("/profile"); profile.raise_for_status()
             assert profile.json()["timezone"] == "Asia/Ho_Chi_Minh"
             updated_profile = api.patch("/profile", json={"day_start": "08:00", "day_end": "21:30", "pomodoro_minutes": 45})
@@ -104,28 +142,47 @@ def verify() -> None:
             })
             task.raise_for_status(); task_id = task.json()["id"]
             assert api.patch(f"/tasks/{task_id}", json={"status": "completed"}).status_code == 200
-            assert api.delete(f"/tasks/{task_id}").status_code == 204
 
-            conversation_id = None
-            stream_ok = False
             one_pixel_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-            with api.stream("POST", "/chat/stream", json={
-                "message": "Hãy xác nhận ngắn gọn rằng bạn đã nhận được ảnh.",
-                "conversation_id": None,
-                "images": [{"mime_type": "image/png", "data": one_pixel_png}],
-            }) as response:
-                response.raise_for_status()
-                for line in response.iter_lines():
-                    if not line.startswith("data: "):
-                        continue
-                    payload = json.loads(line[6:])
-                    if payload["type"] == "start":
-                        conversation_id = payload["conversation_id"]
-                    if payload["type"] == "error":
-                        raise AssertionError(payload["detail"])
-                    if payload["type"] == "done":
-                        stream_ok = True
-            assert stream_ok and conversation_id
+            image_and_read = ask_ai(
+                f"Hãy dùng công cụ kiểm tra lịch ngày {start_day.isoformat()}, sau đó xác nhận ngắn gọn rằng bạn đã nhận ảnh. Không tạo, sửa hoặc xóa dữ liệu.",
+                [{"mime_type": "image/png", "data": one_pixel_png}],
+            )
+
+            task_answer = ask_ai(
+                f"Hãy tìm tất cả nhiệm vụ có deadline đúng ngày {start_day.isoformat()} và cho biết tên, môn học, trạng thái."
+            )
+            assert "Task smoke test" in task_answer["text"]
+
+            ai_day = start_day + timedelta(days=18)
+            ai_title = f"AI tool smoke {secrets.token_hex(3)}"
+            created_by_text = ask_ai(
+                f"Hãy tạo đúng một sự kiện tên '{ai_title}' vào ngày {ai_day.isoformat()} từ 10:00 đến 11:00 theo múi giờ Asia/Ho_Chi_Minh, danh mục Smoke test, không lặp lại."
+            )
+            assert any(action["type"] == "created" for action in created_by_text["actions"])
+            listed = api.get("/events", params={
+                "start": f"{ai_day.isoformat()}T00:00:00+07:00",
+                "end": f"{(ai_day + timedelta(days=1)).isoformat()}T00:00:00+07:00",
+            })
+            listed.raise_for_status()
+            assert any(item["title"] == ai_title for item in listed.json())
+
+            if schedule_image:
+                schedule_payload = base64.b64encode(schedule_image.read_bytes()).decode()
+                schedule_result = ask_ai(
+                    "Hãy GỘP thời khóa biểu trong ảnh vào lịch. Đây là đúng một tuần từ 2026-08-16 đến 2026-08-22, không lặp lại. Tạo các khối môn học có giờ bắt đầu/kết thúc; bỏ qua hai banner #AIRiserVietnam và Ngày làm việc. Không xóa sự kiện khác.",
+                    [{"mime_type": "image/png", "data": schedule_payload}],
+                )
+                assert any(action["type"] == "created" for action in schedule_result["actions"])
+                schedule_events = api.get("/events", params={
+                    "start": "2026-08-16T00:00:00+07:00",
+                    "end": "2026-08-23T00:00:00+07:00",
+                })
+                schedule_events.raise_for_status()
+                assert len(schedule_events.json()) >= 9
+
+            assert api.delete(f"/tasks/{task_id}").status_code == 204
+            conversation_id = image_and_read["conversation_id"]
             conversations = api.get("/chat/conversations"); conversations.raise_for_status()
             assert any(item["id"] == conversation_id for item in conversations.json())
             messages = api.get(f"/chat/conversations/{conversation_id}"); messages.raise_for_status()
@@ -138,5 +195,9 @@ def verify() -> None:
 
 
 if __name__ == "__main__":
-    verify()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--schedule-image", type=Path)
+    parser.add_argument("--ai-pause-seconds", type=float, default=65)
+    arguments = parser.parse_args()
+    verify(arguments.schedule_image, arguments.ai_pause_seconds)
     print("Live API verification: OK")

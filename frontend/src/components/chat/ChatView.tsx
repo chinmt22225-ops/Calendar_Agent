@@ -133,6 +133,9 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
           if (frame !== null) { window.cancelAnimationFrame(frame); frame = null }
           flush()
           setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, metadata: { ...item.metadata, actions } } : item))
+          if (actions.some((action) => action.type.startsWith('task_'))) {
+            window.dispatchEvent(new Event('planora:tasks-changed'))
+          }
         },
       }, controller.signal)
       if (generation !== generationRef.current) return

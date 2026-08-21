@@ -52,7 +52,10 @@ class ConversationUpdate(BaseModel):
 
 
 class CalendarAction(BaseModel):
-    type: Literal["created", "updated", "deleted", "found"]
+    type: Literal[
+        "created", "updated", "deleted", "found",
+        "task_created", "task_updated", "task_deleted", "tasks_found",
+    ]
     label: str
     event_ids: list[str] = Field(default_factory=list)
 

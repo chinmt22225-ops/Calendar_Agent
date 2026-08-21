@@ -1,5 +1,5 @@
 import { AlertTriangle, Check, ChevronDown, ChevronRight, Circle, Clock3, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as tasksApi from '../../api/tasks'
 import { Dialog } from '../common/Dialog'
 import { useProfile } from '../../context/ProfileContext'
@@ -22,13 +22,18 @@ export function TaskPanel() {
   const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<StudyTask | null>(null)
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true); setLoadError('')
     try { setTasks(await tasksApi.fetchTasks()) }
     catch (reason) { setLoadError(reason instanceof Error ? reason.message : 'Không thể tải công việc.') }
     finally { setLoading(false) }
-  }
-  useEffect(() => { void load() }, [])
+  }, [])
+  useEffect(() => {
+    const reloadFromAgent = () => void load()
+    void load()
+    window.addEventListener('planora:tasks-changed', reloadFromAgent)
+    return () => window.removeEventListener('planora:tasks-changed', reloadFromAgent)
+  }, [load])
 
   const ordered = useMemo(() => [...tasks].sort((a, b) => {
     if (a.status === 'completed' && b.status !== 'completed') return 1

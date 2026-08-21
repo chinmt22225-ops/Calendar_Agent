@@ -11,8 +11,10 @@ See [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for the complete biling
 ## Tính năng hiện có
 
 - Supabase Google OAuth và xác thực JWT ở FastAPI.
-- Chat tối giản với Gemini streaming thật, dán/chọn tối đa 3 ảnh có preview, lịch sử đúng role, đổi tên/xóa hội thoại và tiêu đề do Gemini tạo.
-- Gemini function calling cho đọc lịch, tạo một/nhiều sự kiện, dời, xóa, tìm giờ trống và tự động phân bổ buổi ôn tập.
+- Chat tối giản với Gemini, dán/chọn tối đa 3 ảnh có preview, lịch sử đúng role, đổi tên/xóa hội thoại và tiêu đề do Gemini tạo.
+- Vòng function calling nhiều bước do backend kiểm soát cho Calendar và Tasks/deadline: đọc dữ liệu thật, tạo một/nhiều sự kiện hoặc task, dời, cập nhật, xóa, tìm giờ trống và tự động phân bổ buổi ôn tập.
+- Ảnh thời khóa biểu được gửi cùng text tới Gemini; nếu yêu cầu “tạo lại” chưa rõ gộp hay thay thế, thời gian áp dụng hoặc recurrence, trợ lý sẽ hỏi lại thay vì tự đoán/xóa lịch.
+- Phản hồi rỗng, tool lỗi hoặc stream thiếu sự kiện hoàn tất được báo lỗi rõ ràng; ứng dụng không còn dùng câu trả lời thành công giả.
 - Calendar tháng/tuần/ngày/lịch biểu, mini-calendar, sự kiện cả ngày, recurrence ngày/tuần/tháng, kéo thả và resize.
 - Lọc lịch theo môn học/danh mục và đồng bộ dữ liệu tức thời giữa Chat và Calendar.
 - Kiểm tra xung đột thời gian ở cả REST API và công cụ AI.
@@ -118,9 +120,11 @@ npm run build
 
 Tình trạng kiểm thử hiện tại:
 
-- Backend: unit, API, schema-contract và concurrency regression tests.
-- Frontend: Vitest cho timezone/DST/theme, TypeScript check và production build.
+- Backend: `37 passed`, gồm unit, API, schema-contract, concurrency, tool-loop, ảnh và Tasks/deadline regression tests.
+- Frontend: `9 passed`, gồm timezone/DST/theme và SSE chat; TypeScript check và production build thành công.
 - GitHub Actions tự chạy hai suite, production build và bundle budget trên mọi push/PR.
+
+Nếu Gemini trả HTTP `429`, API key/model đang hết hạn mức hoặc bị giới hạn tạm thời. Hãy chờ quota phục hồi hoặc kiểm tra quota của project Gemini; backend sẽ giữ nguyên dữ liệu và không tuyên bố thao tác đã hoàn tất.
 
 ## Triển khai database
 

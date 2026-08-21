@@ -72,9 +72,13 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 - Đổi tên hoặc xóa cuộc hội thoại từ sidebar; tiêu đề mới được Gemini tạo bằng background task sau tin nhắn đầu tiên.
 - Textarea tự tăng chiều cao và gửi bằng phím Enter.
 - Dán ảnh bằng Ctrl+V hoặc chọn JPG/PNG/WebP/GIF từ máy, xem trước và xóa trước khi gửi; ảnh chỉ được chuyển inline tới Gemini và không lưu vào Supabase.
-- Streaming token thật từ Gemini qua Server-Sent Events; lịch sử được gửi đúng cấu trúc role/content.
+- Phản hồi Gemini được truyền qua Server-Sent Events; lịch sử được gửi đúng cấu trúc role/content.
+- Backend tự điều phối tối đa tám vòng function call, chỉ thực thi công cụ trong allow-list và đưa kết quả thật trở lại Gemini trước khi nhận câu trả lời cuối.
+- Calendar và Tasks/deadline đều có công cụ đọc/ghi; câu hỏi về dữ liệu người dùng phải đọc dữ liệu thật trước khi kết luận.
+- Ảnh thời khóa biểu và text được xử lý trong cùng một lượt. Nếu chưa rõ gộp hay thay thế lịch, phạm vi ngày hoặc recurrence, agent hỏi lại và không tự xóa/tạo dữ liệu phỏng đoán.
+- Phản hồi rỗng, tool lỗi và stream không có sự kiện `done` được coi là lỗi; giao diện không hiển thị thông báo thành công giả.
 - Render Markdown trong câu trả lời AI.
-- Inline action pill báo sự kiện được tạo, sửa, xóa hoặc slot rảnh được tìm thấy.
+- Inline action pill báo sự kiện/task được tạo, sửa, xóa hoặc slot rảnh được tìm thấy.
 - Chuyển thẳng sang Calendar từ action pill.
 - Lưu tin nhắn và metadata hành động vào Supabase.
 - Lưu conversation và cặp tin nhắn bằng một database transaction; mỗi yêu cầu có operation ID/fingerprint để replay an toàn và tránh retry khác payload.
@@ -110,7 +114,7 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 
 ### English Summary
 
-The implemented product includes Google OAuth, JWT-protected APIs, persistent and manageable conversations, native Gemini streaming/tool calling, recurring and all-day events, recoverable deletion, study tasks, profile settings, light/dark themes, in-app upcoming-event badges, conflict prevention, free-slot search, and automated study-session distribution.
+The implemented product includes Google OAuth, JWT-protected APIs, persistent and manageable conversations, backend-controlled multi-round Gemini tool calling for text and images, recurring and all-day events, recoverable deletion, study tasks, profile settings, light/dark themes, in-app upcoming-event badges, conflict prevention, free-slot search, and automated study-session distribution.
 
 ---
 
@@ -346,9 +350,12 @@ Agent được hướng dẫn:
 - Không tự đoán ngày, giờ, múi giờ hoặc thời lượng quan trọng.
 - Hỏi lại khi yêu cầu thiếu thông tin.
 - Chỉ thay đổi lịch khi người dùng yêu cầu rõ ràng.
+- Đọc Calendar hoặc Tasks trước khi trả lời câu hỏi về dữ liệu của người dùng.
+- Với ảnh thời khóa biểu, hỏi “gộp hay thay thế”, phạm vi áp dụng và recurrence nếu chưa rõ; không tự xóa lịch hoặc suy luận lặp hằng tuần từ một ảnh duy nhất.
+- Không tuyên bố đã tạo/sửa/xóa khi công cụ thất bại hoặc không có kết quả xác nhận.
 - Trả lời ngắn gọn và thân thiện.
 
-In English, the agent is instructed to respond in Vietnamese, inspect the current schedule before mutations, avoid guessing important time details, ask for clarification when required, perform only explicitly requested changes, and keep responses concise.
+In English, the agent is instructed to respond in Vietnamese, ground Calendar/Tasks answers in live user data, inspect the current schedule before mutations, avoid guessing important time details, clarify ambiguous timetable images, perform only explicitly requested changes, and never claim success without a successful tool result.
 
 ### 9.2. Tools
 
@@ -361,8 +368,24 @@ In English, the agent is instructed to respond in Vietnamese, inspect the curren
 | `delete_calendar_event(event_id)` | Delete an event |
 | `find_free_time_slots(target_date, duration_minutes)` | Find available time slots |
 | `auto_plan_study_sessions(subject, exam_date, total_hours, session_duration)` | Distribute study sessions before an exam |
+| `get_study_tasks(deadline_from, deadline_to, status, subject)` | Read owned tasks/deadlines with bounded filters |
+| `create_study_task(...)` | Create a validated study task |
+| `update_study_task(task_id, ...)` | Update an owned study task |
+| `delete_study_task(task_id)` | Delete an owned study task |
 
-### 9.3. Scheduler Algorithm
+### 9.3. Backend-controlled Tool Loop
+
+Automatic function execution in the SDK is disabled. For each request, the backend:
+
+1. Sends text, optional inline images, conversation history, system rules, and the 11 allowed tool declarations to Gemini.
+2. Validates every returned function name and arguments before execution.
+3. Executes blocking Supabase tool work in a worker thread during the async chat flow.
+4. Returns each tool result to Gemini and repeats for at most eight rounds.
+5. Accepts only a real final text response; empty/model-blocked responses become explicit 4xx/5xx errors and never a generic success message.
+
+This loop fixes the previous failure mode where asynchronous SDK automatic function calling could produce an empty stream after correctly understanding an image.
+
+### 9.4. Scheduler Algorithm
 
 `scheduler_logic.py`:
 
@@ -623,14 +646,15 @@ Supabase Auth must have Google enabled, the same Client ID/Secret, Site URL `htt
 - Exact and partial study-plan duration reporting.
 - Profile timezone/day-range validation and bounded chat history.
 - Recurrence horizon and all-day local-date preservation.
-- Frontend timezone/DST and persistent-theme component tests.
+- Controlled Gemini tool-loop tests for text, inline images, multi-step calls, empty responses, allow-list validation, Tasks/deadline ownership and bulk timetable creation.
+- Frontend timezone/DST, persistent-theme and SSE completion/error component tests.
 - Frontend TypeScript compilation and Vite production build.
 - GitHub Actions backend/frontend jobs and a 450 KB JavaScript chunk budget.
 
 Current backend result:
 
 ```text
-29 backend tests + 6 frontend tests
+37 backend tests + 9 frontend tests
 ```
 
 ### Live Integration Tests
@@ -652,8 +676,10 @@ The implementation was also validated against the hosted Supabase and Gemini ser
 - FastAPI health confirmed Supabase and Gemini configuration.
 - FastAPI event create/list/delete succeeded using a real user JWT.
 - Recurrence conflict, soft-delete, Trash restore/permanent delete, task CRUD, and profile preferences passed through the live API.
-- Native Gemini SSE streaming, generated conversation title, rename, and delete passed through the live API.
-- Multimodal image streaming passed with an inline PNG; the persisted message contained only `image_count`, not image bytes.
+- Native Gemini SSE responses, generated conversation title, rename, and delete passed through the live API.
+- The current controlled tool loop was validated live for an image-backed Calendar read and an exact Tasks/deadline query; both used real Gemini and hosted Supabase data.
+- A subsequent live AI write check was stopped by Gemini HTTP `429` quota/rate limiting. Automated regressions cover calendar/task writes, and no write is reported as successful when the upstream call fails.
+- Multimodal requests persist only `image_count`, not image bytes.
 - All temporary test users and events were deleted after validation.
 - Root `npm run dev` started both services successfully.
 - Frontend returned HTTP 200 on port 5173.
@@ -700,13 +726,13 @@ The main branch tracks:
 - Google OAuth through Supabase.
 - Database schema, migration, triggers, indexes, constraints, and RLS.
 - Events, tasks, profile, and chat APIs.
-- Gemini function calling.
+- Backend-controlled Gemini function calling for Calendar and Tasks/deadlines, including text and images.
 - Smart scheduling and conflict prevention.
 - Minimal chat interface.
 - Interactive calendar interface.
 - Recurrence, all-day events, Tasks, Trash, event completion and in-app badge.
 - Settings, profile-aware scheduling, persistent light/dark theme and URL routing.
-- Native Gemini streaming, rate limiting, generated titles and conversation management.
+- Gemini SSE responses, shared application rate limiting, generated titles and conversation management.
 - One-command local development.
 - Backend/frontend tests, production frontend build and GitHub CI.
 - Live Supabase/Gemini integration validation.
@@ -720,6 +746,7 @@ The main branch tracks:
 - The root development command currently targets Windows virtual-environment paths.
 - Production hosting, custom domains, production OAuth origins, error tracking, monitoring and backups depend on the deployment platform and are not configured yet.
 - The application intentionally uses an in-app upcoming-event badge; browser push/email reminders are not included.
+- Live AI operations also depend on the selected Gemini model's external project quota; HTTP `429` is surfaced to the user without claiming success or mutating data through an unconfirmed tool call.
 
 ---
 

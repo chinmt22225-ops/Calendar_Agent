@@ -497,7 +497,7 @@ grant select, insert, update, delete on public.study_tasks to authenticated;
 grant select, insert, update, delete on public.conversations to authenticated;
 grant select, insert, update, delete on public.chat_messages to authenticated;
 
-+-- Serialize recurrence-aware event mutations per user and keep bulk AI inserts
+-- Serialize recurrence-aware event mutations per user and keep bulk AI inserts
 -- all-or-nothing. The existing exclusion constraint remains the final guard
 -- for non-recurring base ranges.
 

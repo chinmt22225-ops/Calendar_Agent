@@ -72,3 +72,27 @@ def test_auto_plan_returns_partial_plan_metadata():
     assert result["planned_minutes"] == 120
     assert result["remaining_minutes"] == 60
     assert "còn thiếu 60 phút" in tools.actions[-1]["label"]
+
+
+def test_image_style_bulk_arguments_are_validated_and_created_atomically():
+    client = FakeSupabase()
+    tools = CalendarTools(client, uuid4(), "Asia/Ho_Chi_Minh")
+    result = tools.execute_tool("create_calendar_events", {"events": [
+        {
+            "title": "Triết học Mac-Lenin",
+            "start_time": "2026-08-20T07:30:00+07:00",
+            "end_time": "2026-08-20T11:30:00+07:00",
+            "category": "Triết học",
+            "color": "#6699cc",
+        },
+        {
+            "title": "Tiếng Anh bé Minh",
+            "start_time": "2026-08-20T19:00:00+07:00",
+            "end_time": "2026-08-20T21:00:00+07:00",
+            "category": "Tiếng Anh",
+            "color": "#9b59b6",
+        },
+    ]})
+    assert result["created_count"] == 2
+    assert tools.actions[-1]["type"] == "created"
+    assert len(tools.actions[-1]["event_ids"]) == 2

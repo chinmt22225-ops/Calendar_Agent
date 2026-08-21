@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from datetime import datetime
@@ -20,15 +21,25 @@ from models.chat import ChatImage
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """Bạn là AI Calendar Agent dành cho sinh viên Việt Nam.
-Bạn giúp người dùng lập kế hoạch học, tìm giờ trống, tạo, dời và xóa sự kiện.
-Luôn kiểm tra lịch hiện tại trước khi tạo hoặc dời sự kiện để tránh trùng giờ.
-Nếu yêu cầu thiếu ngày, giờ, múi giờ hoặc thời lượng quan trọng, hãy hỏi lại thay vì tự đoán.
-Chỉ thực hiện thay đổi lịch mà người dùng yêu cầu rõ ràng. Trả lời ngắn gọn, thân thiện bằng tiếng Việt.
+Bạn trả lời câu hỏi và giúp người dùng quản lý Calendar lẫn Tasks/deadline.
+
+QUY TẮC CHÍNH XÁC VÀ AN TOÀN:
+- Trả lời bằng tiếng Việt rõ ràng, ngắn gọn; không bịa dữ liệu lịch, deadline hay nội dung không đọc được.
+- Với câu hỏi về lịch, deadline hoặc nhiệm vụ của người dùng, phải gọi công cụ đọc dữ liệu phù hợp trước khi kết luận.
+- Luôn đọc lịch hiện tại trước khi tạo, dời hoặc lên kế hoạch để tránh trùng giờ.
+- Chỉ thay đổi dữ liệu khi người dùng yêu cầu rõ ràng. Nếu thiếu ngày, giờ, năm, múi giờ, thời lượng hoặc môn học quan trọng, hãy hỏi lại.
+- Nếu người dùng nói “tạo lại”, “thiết lập lại” hoặc gửi ảnh thời khóa biểu nhưng chưa rõ muốn GỘP hay THAY THẾ lịch hiện có, phải hỏi lại; không tự xóa dữ liệu.
+- Không suy luận một sự kiện là lặp hằng tuần chỉ từ một ảnh của một tuần. Hãy hỏi thời gian áp dụng và ngày kết thúc recurrence nếu chưa có.
+- Với ảnh, hãy đọc tiêu đề, ngày, giờ và môn học. Nêu rõ phần nào mờ/không chắc chắn và xin xác nhận trước khi ghi lịch nếu có bất kỳ điểm quan trọng nào không chắc chắn.
+- Dùng ngày giờ ISO có múi giờ khi gọi công cụ. Không gọi công cụ với ngày giờ phỏng đoán.
+- Không tuyên bố “đã tạo/đã sửa/đã xóa” nếu công cụ không trả kết quả thành công.
+- Khi công cụ trả lỗi hoặc xung đột, giải thích đúng lỗi và đề xuất bước tiếp theo; không tuyên bố hoàn tất.
 Khi công cụ lập lịch trả complete=false, phải nói rõ số phút đã xếp và số phút còn thiếu; không được tuyên bố kế hoạch đã hoàn tất.
 Ngày giờ hiện tại: {now}. Múi giờ của người dùng: {timezone}.
 """
 
 MAX_HISTORY_CHARACTERS = 48_000
+MAX_TOOL_ROUNDS = 8
 
 
 class CalendarAgentSession:
@@ -54,41 +65,68 @@ class CalendarAgentSession:
             system_instruction=SYSTEM_PROMPT.format(
                 now=datetime.now(ZoneInfo(timezone)).isoformat(), timezone=timezone
             ),
-            tools=[
-                self.tools.get_current_schedule,
-                self.tools.create_calendar_events,
-                self.tools.create_calendar_event,
-                self.tools.reschedule_event,
-                self.tools.delete_calendar_event,
-                self.tools.find_free_time_slots,
-                self.tools.auto_plan_study_sessions,
-            ],
+            tools=self.tools.available_tools(),
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
             temperature=0.2,
         )
 
     def run(self, prompt: str, images: list[ChatImage] | None = None) -> str:
         contents = [*self.contents, _user_content(prompt, images or [])]
         try:
-            response = self.client.models.generate_content(
-                model=self.settings.gemini_model,
-                contents=contents,
-                config=self._config(),
+            for _ in range(MAX_TOOL_ROUNDS):
+                response = self.client.models.generate_content(
+                    model=self.settings.gemini_model,
+                    contents=contents,
+                    config=self._config(),
+                )
+                calls = response.function_calls or []
+                if calls:
+                    _append_tool_round(
+                        contents,
+                        response,
+                        [self.tools.execute_tool(call.name or "", dict(call.args or {})) for call in calls],
+                    )
+                    continue
+                text = _response_text(response)
+                if text:
+                    return text
+                raise _empty_response_error(response)
+            raise HTTPException(
+                status_code=502,
+                detail="Trợ lý đã gọi quá nhiều bước công cụ mà chưa hoàn tất. Vui lòng chia yêu cầu thành phần nhỏ hơn.",
             )
-            return response.text or "Mình đã xử lý yêu cầu của bạn."
         except Exception as exc:
             raise _agent_error(exc) from exc
 
     async def stream(self, prompt: str, images: list[ChatImage] | None = None) -> AsyncIterator[str]:
         contents = [*self.contents, _user_content(prompt, images or [])]
         try:
-            stream = await self.client.aio.models.generate_content_stream(
-                model=self.settings.gemini_model,
-                contents=contents,
-                config=self._config(),
+            for _ in range(MAX_TOOL_ROUNDS):
+                response = await self.client.aio.models.generate_content(
+                    model=self.settings.gemini_model,
+                    contents=contents,
+                    config=self._config(),
+                )
+                calls = response.function_calls or []
+                if calls:
+                    results = []
+                    for call in calls:
+                        results.append(await asyncio.to_thread(
+                            self.tools.execute_tool,
+                            call.name or "",
+                            dict(call.args or {}),
+                        ))
+                    _append_tool_round(contents, response, results)
+                    continue
+                text = _response_text(response)
+                if not text:
+                    raise _empty_response_error(response)
+                yield text
+                return
+            raise HTTPException(
+                status_code=502,
+                detail="Trợ lý đã gọi quá nhiều bước công cụ mà chưa hoàn tất. Vui lòng chia yêu cầu thành phần nhỏ hơn.",
             )
-            async for chunk in stream:
-                if chunk.text:
-                    yield chunk.text
         except Exception as exc:
             raise _agent_error(exc) from exc
 
@@ -158,6 +196,53 @@ def _user_content(prompt: str, images: list[ChatImage]) -> types.Content:
         for image in images
     )
     return types.Content(role="user", parts=parts)
+
+
+def _append_tool_round(
+    contents: list[types.Content],
+    response: types.GenerateContentResponse,
+    results: list[dict],
+) -> None:
+    calls = response.function_calls or []
+    model_content = (
+        response.candidates[0].content
+        if response.candidates and response.candidates[0].content
+        else None
+    )
+    if model_content is None or len(calls) != len(results):
+        raise HTTPException(status_code=502, detail="Gemini trả về lời gọi công cụ không hoàn chỉnh.")
+    contents.append(model_content)
+    response_parts: list[types.Part] = []
+    for call, result in zip(calls, results, strict=True):
+        response_parts.append(types.Part(function_response=types.FunctionResponse(
+            id=call.id,
+            name=call.name or "unknown_tool",
+            response=result,
+        )))
+    contents.append(types.Content(role="user", parts=response_parts))
+
+
+def _response_text(response: types.GenerateContentResponse) -> str:
+    if not response.candidates or not response.candidates[0].content:
+        return ""
+    return "".join(
+        part.text
+        for part in (response.candidates[0].content.parts or [])
+        if part.text and not getattr(part, "thought", False)
+    ).strip()
+
+
+def _empty_response_error(response: types.GenerateContentResponse) -> HTTPException:
+    block_reason = getattr(getattr(response, "prompt_feedback", None), "block_reason", None)
+    if block_reason:
+        return HTTPException(
+            status_code=422,
+            detail="Gemini đã từ chối nội dung này theo chính sách an toàn. Hãy dùng ảnh và yêu cầu khác.",
+        )
+    return HTTPException(
+        status_code=502,
+        detail="Gemini trả về phản hồi rỗng. Không có thay đổi nào được xác nhận.",
+    )
 
 
 def fallback_conversation_title(message: str) -> str:

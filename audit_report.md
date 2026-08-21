@@ -9,15 +9,15 @@
 
 ## 1. Kết quả kiểm tra hiện tại
 
-- Backend unit/API/contract tests: `29 passed`.
-- Frontend: `6 passed`, TypeScript check và production build thành công.
+- Backend unit/API/contract tests: `37 passed`.
+- Frontend: `9 passed`, TypeScript check và production build thành công.
 - Smoke test Supabase + Gemini thật đã qua:
   - tạo và đăng nhập tài khoản tạm;
   - đọc/cập nhật profile;
   - tạo event và chặn conflict;
   - recurrence, Trash, restore và permanent delete;
   - CRUD Tasks;
-  - Gemini streaming có ảnh;
+  - Gemini nhận ảnh và đọc Calendar thật; truy vấn Tasks/deadline dùng dữ liệu thật;
   - tạo, đổi tên, đọc và xóa conversation.
 - Frontend dependency audit offline: không phát hiện vulnerability trong dữ liệu audit hiện có.
 - Python `pip check`: không phát hiện dependency conflict.
@@ -38,7 +38,7 @@ Live verification đã bổ sung kiểm tra concurrent recurrence, shared rate l
 | P1.3 Shared rate limit | Đã sửa và triển khai | Quota PostgreSQL RPC dùng chung giữa worker/instance; lỗi kiểu timestamp đã được sửa bằng migration kế tiếp. |
 | P1.4 Pagination/range limits | Đã sửa backend | Events, Trash, Tasks, Conversations và Messages có maximum page size; frontend range loading sẽ làm sau. |
 | P1.5 History budget | Sửa một phần | Đã giới hạn 48.000 ký tự và giữ messages mới nhất; chưa có token counter/summary lâu dài. |
-| P1.6 Blocking I/O | Sửa một phần | Khởi tạo session đã chuyển sang threadpool; cần load test và xác minh automatic tool execution của SDK. |
+| P1.6 Blocking I/O/tool orchestration | Đã sửa phần AI | Tắt SDK automatic function execution; backend điều phối tối đa 8 vòng, tool Supabase chạy trong threadpool và phản hồi rỗng trở thành lỗi. Load test production vẫn được khuyến nghị. |
 | P1.7 Profile validation | Đã sửa | Timezone IANA, day range và empty PATCH được kiểm tra trước DB. |
 | P1.8 Conversation ownership FK | Đã sửa và triển khai | Composite foreign key bảo vệ quan hệ owner đã có trên database từ xa. |
 | P1.9 Tool input bounds | Đã sửa phần chính | Giới hạn planning horizon, total/session duration, query range, bulk events và description. |
@@ -47,8 +47,11 @@ Live verification đã bổ sung kiểm tra concurrent recurrence, shared rate l
 | P2.2/P2.3 Resource/render | Đã sửa | Preview dùng object URL có revoke; token được batch theo animation frame và auto-scroll tôn trọng vị trí đọc. |
 | P2.4 Background title | Đã sửa | Stream kết thúc trước; title được tạo bằng background task và không ghi đè title đã đổi. |
 | P2.5/P2.6 Tests/bundle | Đã cải thiện | Có backend, schema, frontend timezone/theme tests, CI và bundle budget 450 KB; main chunk dưới budget. |
+| AI ảnh/text và Tasks | Đã sửa | 11 tool Calendar/Tasks trong allow-list; ảnh và text đi cùng một request; agent hỏi lại yêu cầu gộp/thay thế/recurrence mơ hồ; frontend tự tải lại Tasks sau action AI. |
 
 Ba migration `202608210001`, `202608210002` và `202608210003` đã được áp dụng lên Supabase từ xa; live API verification sau migration đã thành công.
+
+Vòng xác minh AI mới đã chạy thành công với ảnh + đọc Calendar và truy vấn Tasks/deadline trên Gemini/Supabase thật. Lượt kiểm tra ghi dữ liệu tiếp theo bị Gemini trả HTTP `429` do quota/rate limit bên ngoài; hệ thống hiển thị đúng lỗi, không trả câu thành công giả và không ảnh hưởng dữ liệu người dùng.
 
 ---
 

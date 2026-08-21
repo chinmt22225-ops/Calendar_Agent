@@ -3,7 +3,7 @@ from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from postgrest.exceptions import APIError as PostgrestAPIError
 from supabase import Client
 
@@ -15,6 +15,7 @@ from agent.scheduler_logic import (
     planned_minutes,
 )
 from models.event import EventCreate
+from models.task import StudyTaskCreate, StudyTaskUpdate
 
 
 class ToolEvent(BaseModel):
@@ -39,6 +40,42 @@ class CalendarTools:
         self.day_start = time.fromisoformat(profile.get("day_start") or "07:00")
         self.day_end = time.fromisoformat(profile.get("day_end") or "22:00")
         self.actions: list[dict] = []
+
+    def available_tools(self) -> list:
+        """Return the exact callable set exposed to Gemini."""
+        return [
+            self.get_current_schedule,
+            self.create_calendar_events,
+            self.create_calendar_event,
+            self.reschedule_event,
+            self.delete_calendar_event,
+            self.find_free_time_slots,
+            self.auto_plan_study_sessions,
+            self.get_study_tasks,
+            self.create_study_task,
+            self.update_study_task,
+            self.delete_study_task,
+        ]
+
+    def execute_tool(self, name: str, arguments: dict) -> dict:
+        """Validate and execute one model-requested tool by allow-listed name."""
+        tools = {tool.__name__: tool for tool in self.available_tools()}
+        tool = tools.get(name)
+        if tool is None:
+            return {"error": f"Công cụ '{name}' không tồn tại."}
+        clean_arguments = dict(arguments or {})
+        try:
+            if name == "create_calendar_events":
+                clean_arguments["events"] = [
+                    item if isinstance(item, ToolEvent) else ToolEvent.model_validate(item)
+                    for item in clean_arguments.get("events", [])
+                ]
+            result = tool(**clean_arguments)
+            return result if isinstance(result, dict) else {"result": result}
+        except (TypeError, ValueError, ValidationError) as exc:
+            return {"error": f"Tham số công cụ không hợp lệ: {exc}"}
+        except PostgrestAPIError as exc:
+            return {"error": _calendar_database_error(exc)}
 
     def get_current_schedule(self, start_date: str, end_date: str) -> dict:
         """Get the user's events between two ISO date or datetime values.
@@ -242,6 +279,151 @@ class CalendarTools:
             "remaining_minutes": remaining,
             "complete": remaining == 0,
         }
+
+    def get_study_tasks(
+        self,
+        deadline_from: str | None = None,
+        deadline_to: str | None = None,
+        status: Literal["pending", "planned", "completed"] | None = None,
+        subject: str | None = None,
+    ) -> dict:
+        """List study tasks and deadlines owned by the signed-in user.
+
+        Args:
+            deadline_from: Optional inclusive YYYY-MM-DD lower deadline.
+            deadline_to: Optional inclusive YYYY-MM-DD upper deadline.
+            status: Optional pending, planned, or completed status.
+            subject: Optional exact subject filter.
+        """
+        try:
+            start = date.fromisoformat(deadline_from) if deadline_from else None
+            end = date.fromisoformat(deadline_to) if deadline_to else None
+        except ValueError:
+            return {"error": "Deadline phải có dạng YYYY-MM-DD."}
+        if start and end and end < start:
+            return {"error": "deadline_to phải bằng hoặc sau deadline_from."}
+        if start and end and (end - start).days > 366:
+            return {"error": "Chỉ được tra cứu deadline trong tối đa 366 ngày."}
+        query = self.client.table("study_tasks").select("*").eq("user_id", self.user_id)
+        if start:
+            query = query.gte("deadline", start.isoformat())
+        if end:
+            query = query.lte("deadline", end.isoformat())
+        if status:
+            query = query.eq("status", status)
+        rows = query.order("deadline").limit(200).execute().data
+        clean_subject = subject.strip().casefold() if subject else None
+        if clean_subject:
+            rows = [row for row in rows if str(row.get("subject", "")).strip().casefold() == clean_subject]
+        return {"count": len(rows), "tasks": rows}
+
+    def create_study_task(
+        self,
+        title: str,
+        subject: str,
+        estimated_hours: float,
+        deadline: str,
+        priority: int = 2,
+    ) -> dict:
+        """Create a study task with a deadline.
+
+        Args:
+            title: Concise task title.
+            subject: Course or subject name.
+            estimated_hours: Positive estimated effort in hours.
+            deadline: Deadline in YYYY-MM-DD format.
+            priority: Priority from 1 (high) to 3 (low).
+        """
+        try:
+            payload = StudyTaskCreate.model_validate({
+                "title": title,
+                "subject": subject,
+                "estimated_hours": estimated_hours,
+                "deadline": deadline,
+                "priority": priority,
+                "status": "pending",
+            }).model_dump(mode="json")
+        except ValidationError as exc:
+            return {"error": f"Dữ liệu nhiệm vụ không hợp lệ: {exc}"}
+        rows = self.client.table("study_tasks").insert({
+            **payload, "user_id": self.user_id,
+        }).execute().data
+        if not rows:
+            return {"error": "Không thể tạo nhiệm vụ lúc này."}
+        task = rows[0]
+        self.actions.append({
+            "type": "task_created",
+            "label": f"Đã thêm nhiệm vụ {task['title']}",
+            "event_ids": [task["id"]],
+        })
+        return task
+
+    def update_study_task(
+        self,
+        task_id: str,
+        title: str | None = None,
+        subject: str | None = None,
+        estimated_hours: float | None = None,
+        deadline: str | None = None,
+        priority: int | None = None,
+        status: Literal["pending", "planned", "completed"] | None = None,
+    ) -> dict:
+        """Update fields or completion status of an existing study task.
+
+        Args:
+            task_id: Existing task UUID.
+            title: Optional new title.
+            subject: Optional new subject.
+            estimated_hours: Optional new positive estimate.
+            deadline: Optional new YYYY-MM-DD deadline.
+            priority: Optional priority from 1 to 3.
+            status: Optional pending, planned, or completed status.
+        """
+        supplied = {
+            key: value for key, value in {
+                "title": title, "subject": subject, "estimated_hours": estimated_hours,
+                "deadline": deadline, "priority": priority, "status": status,
+            }.items() if value is not None
+        }
+        if not supplied:
+            return {"error": "Không có thay đổi nào cho nhiệm vụ."}
+        try:
+            changes = StudyTaskUpdate.model_validate(supplied).model_dump(
+                exclude_none=True, mode="json"
+            )
+        except ValidationError as exc:
+            return {"error": f"Dữ liệu nhiệm vụ không hợp lệ: {exc}"}
+        rows = self.client.table("study_tasks").update(changes).eq(
+            "id", task_id
+        ).eq("user_id", self.user_id).execute().data
+        if not rows:
+            return {"error": "Không tìm thấy nhiệm vụ."}
+        task = rows[0]
+        self.actions.append({
+            "type": "task_updated",
+            "label": f"Đã cập nhật nhiệm vụ {task['title']}",
+            "event_ids": [task["id"]],
+        })
+        return task
+
+    def delete_study_task(self, task_id: str) -> dict:
+        """Delete one study task by UUID.
+
+        Args:
+            task_id: Existing task UUID.
+        """
+        rows = self.client.table("study_tasks").delete().eq(
+            "id", task_id
+        ).eq("user_id", self.user_id).execute().data
+        if not rows:
+            return {"error": "Không tìm thấy nhiệm vụ."}
+        task = rows[0]
+        self.actions.append({
+            "type": "task_deleted",
+            "label": f"Đã xóa nhiệm vụ {task['title']}",
+            "event_ids": [task_id],
+        })
+        return {"deleted": True, "task": task}
 
     def _get_events(self, start_date: str, end_date: str) -> list[dict]:
         tz = ZoneInfo(self.timezone)

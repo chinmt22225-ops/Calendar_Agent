@@ -359,9 +359,12 @@ async def stream_chat(
                     pending_token = None
                 parts.append(token)
                 yield _sse({"type": "token", "content": token})
-            text = "".join(parts).strip() or "Mình đã xử lý yêu cầu của bạn."
-            if not parts:
-                yield _sse({"type": "token", "content": text})
+            text = "".join(parts).strip()
+            if not text:
+                raise HTTPException(
+                    status_code=502,
+                    detail="Trợ lý không tạo được phản hồi hợp lệ. Không có thay đổi nào được xác nhận.",
+                )
             await run_in_threadpool(
                 _persist_exchange,
                 operation_id,

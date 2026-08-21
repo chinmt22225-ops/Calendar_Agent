@@ -1,5 +1,5 @@
 export type CalendarAction = {
-  type: 'created' | 'updated' | 'deleted' | 'found'
+  type: 'created' | 'updated' | 'deleted' | 'found' | 'task_created' | 'task_updated' | 'task_deleted' | 'tasks_found'
   label: string
   event_ids: string[]
 }
