@@ -24,25 +24,32 @@ export async function streamMessage(
   message: string,
   conversationId: string | null,
   images: ChatImagePayload[],
+  operationId: string,
   handlers: {
     onStart: (conversationId: string) => void
     onToken: (token: string) => void
     onActions: (actions: CalendarAction[]) => void
+    onDone?: () => void
   },
+  signal?: AbortSignal,
 ) {
   const token = await getAccessToken()
   const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ message, conversation_id: conversationId, images }),
+    body: JSON.stringify({ message, conversation_id: conversationId, operation_id: operationId, images }),
+    signal,
   })
   if (!response.ok || !response.body) {
     const detail = await response.json().catch(() => ({ detail: 'Không thể kết nối với trợ lý AI.' }))
-    throw new Error(detail.detail || 'Không thể kết nối với trợ lý AI.')
+    const retryAfter = response.headers.get('Retry-After')
+    const suffix = response.status === 429 && retryAfter ? ` Vui lòng thử lại sau ${retryAfter} giây.` : ''
+    throw new Error(`${detail.detail || 'Không thể kết nối với trợ lý AI.'}${suffix}`)
   }
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let completed = false
   while (true) {
     const { value, done } = await reader.read()
     if (done) break
@@ -51,11 +58,15 @@ export async function streamMessage(
     buffer = chunks.pop() || ''
     for (const chunk of chunks) {
       if (!chunk.startsWith('data: ')) continue
-      const payload = JSON.parse(chunk.slice(6))
+      let payload
+      try { payload = JSON.parse(chunk.slice(6)) }
+      catch { throw new Error('Phản hồi từ Trợ lý AI không đúng định dạng.') }
       if (payload.type === 'start') handlers.onStart(payload.conversation_id)
       if (payload.type === 'token') handlers.onToken(payload.content)
       if (payload.type === 'actions') handlers.onActions(payload.actions)
+      if (payload.type === 'done') { completed = true; handlers.onDone?.() }
       if (payload.type === 'error') throw new Error(payload.detail || 'Trợ lý AI gặp lỗi.')
     }
   }
+  if (!completed) throw new Error('Kết nối đã đóng trước khi Trợ lý AI hoàn tất phản hồi.')
 }

@@ -7,7 +7,9 @@
     "dev:api": "backend\\.venv\\Scripts\\python.exe -m uvicorn main:app --app-dir backend --reload --host 127.0.0.1 --port 8000",
     "dev:web": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build",
-    "test": "cd backend && .venv\\Scripts\\python.exe -m pytest -q"
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && .venv\\Scripts\\python.exe -m pytest -q",
+    "test:frontend": "npm --prefix frontend test"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

@@ -1,20 +1,26 @@
-import { Check, Plus, Trash2 } from 'lucide-react'
+import { CalendarPlus, Check, PanelLeftClose, PanelLeftOpen, Plus, Trash2, X } from 'lucide-react'
 import { MiniCalendar } from './MiniCalendar'
 import { TaskPanel } from './TaskPanel'
 
-export function CalendarSidebar({ categories, categoryColors, visible, selectedDate, onDateChange, onToggle, onCreate, onOpenTrash }: {
+export function CalendarSidebar({ categories, categoryColors, visible, selectedDate, collapsed, mobileOpen, onDateChange, onToggle, onCreate, onOpenTrash, onToggleCollapsed, onCloseMobile }: {
   categories: string[]
   categoryColors: Record<string, string>
   visible: Set<string>
   selectedDate: string
+  collapsed: boolean
+  mobileOpen: boolean
   onDateChange: (date: string) => void
   onToggle: (category: string) => void
   onCreate: () => void
   onOpenTrash: () => void
+  onToggleCollapsed: () => void
+  onCloseMobile: () => void
 }) {
   return (
-    <aside className="calendar-sidebar">
-      <button className="create-event" onClick={onCreate}><Plus size={20} /> Tạo mới</button>
+    <aside className={`calendar-sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
+      <div className="calendar-sidebar-head"><button className="sidebar-collapse" aria-label={collapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'} title={collapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'} onClick={onToggleCollapsed}>{collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}</button><button className="mobile-sidebar-close" aria-label="Đóng thanh bên" onClick={onCloseMobile}><X size={18} /></button></div>
+      {collapsed ? <div className="calendar-sidebar-rail"><button aria-label="Tạo sự kiện" title="Tạo sự kiện" onClick={onCreate}><CalendarPlus size={19} /></button><button aria-label="Mở Thùng rác" title="Thùng rác" onClick={onOpenTrash}><Trash2 size={18} /></button></div> : <>
+      <button className="create-event" onClick={onCreate}><Plus size={20} /> Tạo sự kiện</button>
       <MiniCalendar selectedDate={selectedDate} onSelect={onDateChange} />
       <section className="calendar-filters">
         <div><h3>Lịch của tôi</h3><button onClick={() => categories.forEach((item) => !visible.has(item) && onToggle(item))}>Hiện tất cả</button></div>
@@ -29,7 +35,8 @@ export function CalendarSidebar({ categories, categoryColors, visible, selectedD
       </section>
       <TaskPanel />
       <button className="trash-link" onClick={onOpenTrash}><Trash2 size={15} /> Thùng rác</button>
-      <div className="ai-filter-note"><span>✦</span><p><strong>Do AI xếp</strong><br />Sự kiện có ký hiệu ✦ được trợ lý tự động lên lịch.</p></div>
+      <div className="ai-filter-note"><span>✦</span><p><strong>Do Planora xếp</strong><br />Sự kiện có ký hiệu ✦ được tạo từ Trợ lý AI.</p></div>
+      </>}
     </aside>
   )
 }

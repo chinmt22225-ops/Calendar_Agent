@@ -1,22 +1,28 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
+from postgrest.exceptions import APIError as PostgrestAPIError
 from supabase import Client
 
 from agent.recurrence import events_overlap, iter_occurrences
-from agent.scheduler_logic import distribute_study_sessions, find_free_slots
+from agent.scheduler_logic import (
+    MAX_PLANNING_DAYS,
+    distribute_study_sessions,
+    find_free_slots,
+    planned_minutes,
+)
 from models.event import EventCreate
 
 
 class ToolEvent(BaseModel):
-    title: str
+    title: str = Field(min_length=1, max_length=180)
     start_time: str
     end_time: str
-    description: str = ""
-    category: str = "Học tập"
+    description: str = Field(default="", max_length=5000)
+    category: str = Field(default="Học tập", min_length=1, max_length=60)
     color: str = Field(default="#2563eb", pattern=r"^#[0-9a-fA-F]{6}$")
     all_day: bool = False
     recurrence_rule: Literal["daily", "weekly", "monthly"] | None = None
@@ -41,7 +47,10 @@ class CalendarTools:
             start_date: Inclusive ISO start date or datetime.
             end_date: Inclusive ISO end date or datetime.
         """
-        events = self._get_events(start_date, end_date)
+        try:
+            events = self._get_events(start_date, end_date)
+        except ValueError as exc:
+            return {"error": str(exc)}
         return {"count": len(events), "events": events}
 
     def create_calendar_event(
@@ -87,6 +96,8 @@ class CalendarTools:
         """
         if not events:
             return {"error": "Danh sách sự kiện đang trống."}
+        if len(events) > 50:
+            return {"error": "Mỗi lần chỉ được tạo tối đa 50 sự kiện."}
         payloads: list[dict] = []
         for event in events:
             try:
@@ -98,7 +109,15 @@ class CalendarTools:
             if self._event_conflict(candidate, additional=payloads):
                 return {"error": f"'{event.title}' đang trùng với một sự kiện khác. Hãy tìm khung giờ khác."}
             payloads.append({"user_id": self.user_id, **candidate})
-        created = self.client.table("events").insert(payloads).execute().data
+        try:
+            created = self.client.rpc("create_calendar_events_atomic", {
+                "p_user_id": self.user_id,
+                "p_events": payloads,
+            }).execute().data
+        except PostgrestAPIError as exc:
+            return {"error": _calendar_database_error(exc)}
+        if not created:
+            return {"error": "Không thể tạo sự kiện lúc này."}
         ids = [row["id"] for row in created]
         label = f"Đã thêm {len(created)} sự kiện vào lịch" if len(created) > 1 else f"Đã thêm {created[0]['title']} vào lịch"
         self.actions.append({"type": "created", "label": label, "event_ids": ids})
@@ -115,12 +134,28 @@ class CalendarTools:
         current = self.client.table("events").select("*").eq("id", event_id).eq("user_id", self.user_id).is_("deleted_at", "null").limit(1).execute().data
         if not current:
             return {"error": "Không tìm thấy sự kiện."}
-        candidate = {**current[0], "start_time": new_start, "end_time": new_end}
+        try:
+            candidate = EventCreate.model_validate(
+                {**current[0], "start_time": new_start, "end_time": new_end}
+            ).model_dump(mode="json")
+        except ValueError as exc:
+            return {"error": f"Thời gian mới không hợp lệ: {exc}"}
         if self._event_conflict(candidate, exclude_id=event_id):
             return {"error": "Khung giờ mới đang trùng với một sự kiện khác."}
-        rows = self.client.table("events").update({"start_time": new_start, "end_time": new_end}).eq("id", event_id).eq("user_id", self.user_id).execute().data
-        self.actions.append({"type": "updated", "label": f"Đã dời {rows[0]['title']}", "event_ids": [event_id]})
-        return rows[0]
+        try:
+            updated = self.client.rpc("update_calendar_event_atomic", {
+                "p_user_id": self.user_id,
+                "p_event_id": event_id,
+                "p_event": candidate,
+            }).execute().data
+        except PostgrestAPIError as exc:
+            return {"error": _calendar_database_error(exc)}
+        if isinstance(updated, list):
+            updated = updated[0] if updated else None
+        if not updated:
+            return {"error": "Không thể dời sự kiện lúc này."}
+        self.actions.append({"type": "updated", "label": f"Đã dời {updated['title']}", "event_ids": [event_id]})
+        return updated
 
     def delete_calendar_event(self, event_id: str) -> dict:
         """Move one calendar event to Trash by UUID.
@@ -128,7 +163,7 @@ class CalendarTools:
         Args:
             event_id: Existing event UUID.
         """
-        rows = self.client.table("events").update({"deleted_at": datetime.now().astimezone().isoformat()}).eq("id", event_id).eq("user_id", self.user_id).is_("deleted_at", "null").execute().data
+        rows = self.client.table("events").update({"deleted_at": datetime.now(timezone.utc).isoformat()}).eq("id", event_id).eq("user_id", self.user_id).is_("deleted_at", "null").execute().data
         if not rows:
             return {"error": "Không tìm thấy sự kiện."}
         self.actions.append({"type": "deleted", "label": f"Đã chuyển {rows[0]['title']} vào Thùng rác", "event_ids": [event_id]})
@@ -141,8 +176,14 @@ class CalendarTools:
             target_date: Date in YYYY-MM-DD format.
             duration_minutes: Required uninterrupted duration in minutes.
         """
-        events = self._get_events(target_date, target_date)
-        slots = find_free_slots(events, date.fromisoformat(target_date), duration_minutes, self.timezone, self.day_start, self.day_end)
+        if not 5 <= duration_minutes <= 12 * 60:
+            return {"error": "Thời lượng cần tìm phải từ 5 đến 720 phút."}
+        try:
+            target = date.fromisoformat(target_date)
+            events = self._get_events(target_date, target_date)
+            slots = find_free_slots(events, target, duration_minutes, self.timezone, self.day_start, self.day_end)
+        except ValueError as exc:
+            return {"error": f"Yêu cầu tìm giờ trống không hợp lệ: {exc}"}
         self.actions.append({"type": "found", "label": f"Đã tìm thấy {len(slots)} khung giờ phù hợp", "event_ids": []})
         return {"count": len(slots), "slots": slots[:8]}
 
@@ -155,21 +196,61 @@ class CalendarTools:
             total_hours: Total study hours required.
             session_duration: Length of each session in minutes.
         """
+        clean_subject = subject.strip()
+        if not clean_subject or len(clean_subject) > 80:
+            return {"error": "Tên môn học phải có từ 1 đến 80 ký tự."}
         today = datetime.now(ZoneInfo(self.timezone)).date()
-        events = self._get_events(today.isoformat(), exam_date)
-        sessions = distribute_study_sessions(
-            events, subject, date.fromisoformat(exam_date), total_hours, session_duration,
-            self.timezone, day_start=self.day_start, day_end=self.day_end,
-        )
+        try:
+            parsed_exam_date = date.fromisoformat(exam_date)
+            events = self._get_events(today.isoformat(), exam_date)
+            sessions = distribute_study_sessions(
+                events, clean_subject, parsed_exam_date, total_hours, session_duration,
+                self.timezone, day_start=self.day_start, day_end=self.day_end,
+            )
+        except ValueError as exc:
+            return {"error": f"Không thể lập kế hoạch: {exc}"}
+        requested = round(total_hours * 60)
+        planned = planned_minutes(sessions)
+        remaining = max(0, requested - planned)
         if not sessions:
-            return {"error": "Không tìm được khung giờ phù hợp trước ngày thi."}
-        created = self.client.table("events").insert([{**session, "user_id": self.user_id} for session in sessions]).execute().data
+            return {
+                "error": "Không tìm được khung giờ phù hợp trước ngày thi.",
+                "requested_minutes": requested,
+                "planned_minutes": 0,
+                "remaining_minutes": requested,
+                "complete": False,
+            }
+        try:
+            created = self.client.rpc("create_calendar_events_atomic", {
+                "p_user_id": self.user_id,
+                "p_events": sessions,
+            }).execute().data
+        except PostgrestAPIError as exc:
+            return {"error": _calendar_database_error(exc)}
+        if not created:
+            return {"error": "Không thể lưu kế hoạch học lúc này."}
         ids = [row["id"] for row in created]
-        self.actions.append({"type": "created", "label": f"Đã thêm {len(created)} buổi học {subject} vào lịch", "event_ids": ids})
-        return {"created_count": len(created), "events": created}
+        label = f"Đã thêm {len(created)} buổi học {clean_subject} vào lịch"
+        if remaining:
+            label += f", còn thiếu {remaining} phút chưa thể sắp xếp"
+        self.actions.append({"type": "created", "label": label, "event_ids": ids})
+        return {
+            "created_count": len(created),
+            "events": created,
+            "requested_minutes": requested,
+            "planned_minutes": planned,
+            "remaining_minutes": remaining,
+            "complete": remaining == 0,
+        }
 
     def _get_events(self, start_date: str, end_date: str) -> list[dict]:
         tz = ZoneInfo(self.timezone)
+        start_day = _date_part(start_date)
+        end_day = _date_part(end_date)
+        if end_day < start_day:
+            raise ValueError("Ngày kết thúc phải bằng hoặc sau ngày bắt đầu")
+        if (end_day - start_day).days > MAX_PLANNING_DAYS:
+            raise ValueError(f"Khoảng thời gian không được vượt quá {MAX_PLANNING_DAYS} ngày")
         start = start_date if "T" in start_date else datetime.combine(date.fromisoformat(start_date), time.min, tzinfo=tz).isoformat()
         end = end_date if "T" in end_date else datetime.combine(date.fromisoformat(end_date), time.max, tzinfo=tz).isoformat()
         rows = self.client.table("events").select("*").eq("user_id", self.user_id).eq("status", "scheduled").is_("deleted_at", "null").lt("start_time", end).or_(f"end_time.gt.{start},recurrence_end.gte.{start[:10]}").order("start_time").execute().data
@@ -194,3 +275,18 @@ class CalendarTools:
 
     def _event_conflict(self, candidate: dict, exclude_id: str | None = None, additional: list[dict] | None = None) -> bool:
         return events_overlap(candidate, [*self._active_events(), *(additional or [])], exclude_id) is not None
+
+
+def _date_part(value: str) -> date:
+    if "T" not in value:
+        return date.fromisoformat(value)
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+
+
+def _calendar_database_error(exc: PostgrestAPIError) -> str:
+    message = str(getattr(exc, "message", "") or exc)
+    marker = "calendar_conflict:"
+    if marker in message:
+        title = message.split(marker, 1)[1].splitlines()[0].strip()
+        return f"Khung giờ đang trùng với '{title}'."
+    return "Không thể lưu thay đổi lịch lúc này."

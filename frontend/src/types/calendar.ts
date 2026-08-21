@@ -10,6 +10,8 @@ export type CalendarEvent = {
   status: 'scheduled' | 'completed' | 'cancelled'
   is_ai_generated: boolean
   all_day: boolean
+  all_day_start?: string | null
+  all_day_end?: string | null
   recurrence_rule?: 'daily' | 'weekly' | 'monthly' | null
   recurrence_end?: string | null
   deleted_at?: string | null

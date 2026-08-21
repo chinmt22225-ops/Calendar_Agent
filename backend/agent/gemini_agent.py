@@ -24,8 +24,11 @@ Bạn giúp người dùng lập kế hoạch học, tìm giờ trống, tạo, 
 Luôn kiểm tra lịch hiện tại trước khi tạo hoặc dời sự kiện để tránh trùng giờ.
 Nếu yêu cầu thiếu ngày, giờ, múi giờ hoặc thời lượng quan trọng, hãy hỏi lại thay vì tự đoán.
 Chỉ thực hiện thay đổi lịch mà người dùng yêu cầu rõ ràng. Trả lời ngắn gọn, thân thiện bằng tiếng Việt.
+Khi công cụ lập lịch trả complete=false, phải nói rõ số phút đã xếp và số phút còn thiếu; không được tuyên bố kế hoạch đã hoàn tất.
 Ngày giờ hiện tại: {now}. Múi giờ của người dùng: {timezone}.
 """
+
+MAX_HISTORY_CHARACTERS = 48_000
 
 
 class CalendarAgentSession:
@@ -104,7 +107,7 @@ def run_calendar_agent(
 def generate_conversation_title(message: str) -> str:
     settings = get_settings()
     if not settings.gemini_configured:
-        return _fallback_title(message)
+        return fallback_conversation_title(message)
     try:
         client = genai.Client(api_key=settings.gemini_api_key)
         response = client.models.generate_content(
@@ -116,18 +119,29 @@ def generate_conversation_title(message: str) -> str:
             config=types.GenerateContentConfig(temperature=0.1, max_output_tokens=40),
         )
         clean = " ".join((response.text or "").strip().strip('"').split())
-        return clean[:100] or _fallback_title(message)
+        return clean[:100] or fallback_conversation_title(message)
     except Exception:
         logger.warning("Không thể tạo tiêu đề hội thoại bằng Gemini", exc_info=True)
-        return _fallback_title(message)
+        return fallback_conversation_title(message)
 
 
 def _history_contents(history: list[dict]) -> list[types.Content]:
-    contents: list[types.Content] = []
-    for item in history[-40:]:
-        role = "model" if item.get("role") == "assistant" else "user"
-        if item.get("role") not in {"user", "assistant"} or not item.get("content"):
+    selected: list[dict] = []
+    used_characters = 0
+    for item in reversed(history):
+        content = item.get("content")
+        if item.get("role") not in {"user", "assistant"} or not content:
             continue
+        remaining = MAX_HISTORY_CHARACTERS - used_characters
+        if remaining <= 0:
+            break
+        if len(content) > remaining:
+            content = content[-remaining:]
+        selected.append({**item, "content": content})
+        used_characters += len(content)
+    contents: list[types.Content] = []
+    for item in reversed(selected):
+        role = "model" if item.get("role") == "assistant" else "user"
         contents.append(types.Content(role=role, parts=[types.Part(text=item["content"])]))
     return contents
 
@@ -146,7 +160,7 @@ def _user_content(prompt: str, images: list[ChatImage]) -> types.Content:
     return types.Content(role="user", parts=parts)
 
 
-def _fallback_title(message: str) -> str:
+def fallback_conversation_title(message: str) -> str:
     clean = " ".join(message.split())
     return clean[:52] or "Đoạn chat mới"
 

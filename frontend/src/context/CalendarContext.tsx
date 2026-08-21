@@ -7,6 +7,7 @@ import { useToast } from './ToastContext'
 type CalendarContextValue = {
   events: CalendarEvent[]
   loading: boolean
+  error: string | null
   categories: string[]
   categoryColors: Record<string, string>
   refresh: () => Promise<void>
@@ -22,13 +23,17 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const notify = useToast()
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     if (!user) return
     setLoading(true)
+    setError(null)
     try { setEvents(await eventsApi.fetchEvents()) }
-    catch (error) {
-      notify(error instanceof Error ? error.message : 'Không thể tải lịch. Vui lòng thử lại.')
+    catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'Không thể tải lịch. Vui lòng thử lại.'
+      setError(message)
+      notify(message)
     } finally {
       setLoading(false)
     }
@@ -39,6 +44,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const value = useMemo<CalendarContextValue>(() => ({
     events,
     loading,
+    error,
     categories: [...new Set(events.map((event) => event.category))],
     categoryColors: Object.fromEntries(events.map((event) => [event.category, event.color])),
     refresh,
@@ -56,7 +62,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       await eventsApi.deleteEvent(id)
       setEvents((current) => current.filter((event) => event.id !== id))
     },
-  }), [events, loading, refresh])
+  }), [error, events, loading, refresh])
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>
 }

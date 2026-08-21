@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from supabase import Client
 
 from db.auth import get_current_user_id
@@ -13,6 +13,8 @@ router = APIRouter(prefix="/tasks", tags=["study tasks"])
 
 @router.get("", response_model=list[StudyTaskOut])
 def list_tasks(
+    limit: int = Query(default=100, ge=1, le=200),
+    offset: int = Query(default=0, ge=0, le=10_000),
     user_id: UUID = Depends(get_current_user_id), client: Client = Depends(get_supabase)
 ):
     return (
@@ -20,6 +22,7 @@ def list_tasks(
         .select("*")
         .eq("user_id", str(user_id))
         .order("deadline")
+        .range(offset, offset + limit - 1)
         .execute()
         .data
     )
@@ -31,9 +34,12 @@ def create_task(
     user_id: UUID = Depends(get_current_user_id),
     client: Client = Depends(get_supabase),
 ):
-    return client.table("study_tasks").insert(
+    rows = client.table("study_tasks").insert(
         {**payload.model_dump(mode="json"), "user_id": str(user_id)}
-    ).execute().data[0]
+    ).execute().data
+    if not rows:
+        raise HTTPException(status_code=503, detail="Không thể tạo nhiệm vụ lúc này.")
+    return rows[0]
 
 
 @router.patch("/{task_id}", response_model=StudyTaskOut)
@@ -43,9 +49,12 @@ def update_task(
     user_id: UUID = Depends(get_current_user_id),
     client: Client = Depends(get_supabase),
 ):
+    changes = payload.model_dump(exclude_unset=True, mode="json")
+    if not changes:
+        raise HTTPException(status_code=400, detail="Không có thay đổi nào.")
     rows = (
         client.table("study_tasks")
-        .update(payload.model_dump(exclude_none=True, mode="json"))
+        .update(changes)
         .eq("id", str(task_id))
         .eq("user_id", str(user_id))
         .execute()
@@ -72,4 +81,3 @@ def delete_task(
     )
     if not rows:
         raise HTTPException(status_code=404, detail="Không tìm thấy nhiệm vụ.")
-

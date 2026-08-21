@@ -69,7 +69,7 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 - Màn hình chào tối giản và bốn prompt gợi ý.
 - Sidebar lịch sử hội thoại có thể thu gọn.
 - Tạo cuộc hội thoại mới và mở lại hội thoại cũ.
-- Đổi tên hoặc xóa cuộc hội thoại từ sidebar; tiêu đề mới được Gemini tạo một lần sau tin nhắn đầu tiên.
+- Đổi tên hoặc xóa cuộc hội thoại từ sidebar; tiêu đề mới được Gemini tạo bằng background task sau tin nhắn đầu tiên.
 - Textarea tự tăng chiều cao và gửi bằng phím Enter.
 - Dán ảnh bằng Ctrl+V hoặc chọn JPG/PNG/WebP/GIF từ máy, xem trước và xóa trước khi gửi; ảnh chỉ được chuyển inline tới Gemini và không lưu vào Supabase.
 - Streaming token thật từ Gemini qua Server-Sent Events; lịch sử được gửi đúng cấu trúc role/content.
@@ -77,7 +77,8 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 - Inline action pill báo sự kiện được tạo, sửa, xóa hoặc slot rảnh được tìm thấy.
 - Chuyển thẳng sang Calendar từ action pill.
 - Lưu tin nhắn và metadata hành động vào Supabase.
-- Chỉ lưu cặp tin nhắn sau khi stream hoàn tất và giới hạn 10 yêu cầu AI/phút/người dùng.
+- Lưu conversation và cặp tin nhắn bằng một database transaction; mỗi yêu cầu có operation ID/fingerprint để replay an toàn và tránh retry khác payload.
+- Rate limit 10 yêu cầu AI/phút/người dùng dùng chung giữa các backend worker qua PostgreSQL.
 
 ### 3.3. Calendar
 
@@ -155,7 +156,7 @@ flowchart LR
 | Backend | FastAPI, Pydantic, Uvicorn | REST API, validation, orchestration |
 | AI | Google Gemini, google-genai SDK | Natural-language reasoning and tool selection |
 | Database client | supabase-py | Server-side Supabase access |
-| Testing | Pytest, FastAPI TestClient | Backend and scheduling tests |
+| Testing | Pytest, FastAPI TestClient, Vitest, Testing Library | Backend, schema-contract and frontend regression tests |
 | Orchestration | concurrently | Start frontend and backend with one command |
 
 ---
@@ -395,7 +396,7 @@ A trigger automatically inserts a profile after a new Supabase Auth user is crea
 
 ### 10.2. events
 
-Stores title, description, start/end timestamps, color, category, status, AI-generated flag, `all_day`, recurrence frequency/end date, `deleted_at`, and audit timestamps.
+Stores title, description, start/end timestamps, color, category, status, AI-generated flag, `all_day`, stable `all_day_start`/`all_day_end` dates, recurrence frequency/end date, `deleted_at`, and audit timestamps.
 
 Important constraints:
 
@@ -403,7 +404,9 @@ Important constraints:
 - Color must be a valid six-digit hex value.
 - Status must be `scheduled`, `completed`, or `cancelled`.
 - Recurrence must be `daily`, `weekly`, or `monthly` and requires an inclusive end date.
+- Recurrence is bounded to five years and 2,000 occurrences to protect API workers.
 - Active scheduled base events belonging to the same user cannot overlap; the API also checks expanded recurring instances.
+- All-day events preserve their submitted local date separately from UTC timestamps.
 
 ### 10.3. study_tasks
 
@@ -415,9 +418,14 @@ Stores a user-owned conversation title and creation/update timestamps. Deleting 
 
 ### 10.5. chat_messages
 
-Stores messages with user ID, conversation ID, role, content, JSON metadata, and creation timestamp. Calendar actions are stored in `metadata.actions`.
+Stores messages with user ID, conversation ID, role, content, JSON metadata, and creation timestamp. Calendar actions are stored in `metadata.actions`. A composite foreign key guarantees that message and conversation owners match.
 
-### 10.6. Indexes
+### 10.6. ai_chat_operations and api_rate_limits
+
+- `ai_chat_operations` tracks pending/completed/failed AI requests, request fingerprints, replay text and calendar actions.
+- `api_rate_limits` provides a shared per-user/per-bucket counter for all backend instances.
+
+### 10.7. Indexes
 
 Indexes cover:
 
@@ -573,7 +581,7 @@ The frontend uses `strictPort`; it stops with an error instead of silently switc
 | Command | Purpose |
 |---|---|
 | `npm run dev` | Start frontend and backend together |
-| `npm test` | Run backend tests |
+| `npm test` | Run backend and frontend tests |
 | `npm run build` | Type-check and build the frontend |
 
 ---
@@ -611,14 +619,18 @@ Supabase Auth must have Google enabled, the same Client ID/Secret, Site URL `htt
 - Free-slot calculation avoids busy events.
 - Returned slot duration matches the request.
 - Daily/monthly recurrence expansion and recurring conflict detection.
-- Sliding-window rate limiting.
-- Frontend TypeScript compilation.
-- Vite production build.
+- Shared PostgreSQL rate limiting.
+- Exact and partial study-plan duration reporting.
+- Profile timezone/day-range validation and bounded chat history.
+- Recurrence horizon and all-day local-date preservation.
+- Frontend timezone/DST and persistent-theme component tests.
+- Frontend TypeScript compilation and Vite production build.
+- GitHub Actions backend/frontend jobs and a 450 KB JavaScript chunk budget.
 
 Current backend result:
 
 ```text
-10 passed
+29 backend tests + 6 frontend tests
 ```
 
 ### Live Integration Tests
@@ -627,8 +639,9 @@ The implementation was also validated against the hosted Supabase and Gemini ser
 
 - Supabase publishable and secret keys validated.
 - Gemini API key and model access validated.
-- Migration dry-run and real migration succeeded.
-- Remote migration state confirmed up to date.
+- Previously deployed migrations and live integration tests succeeded.
+- Migrations `202608210001_backend_hardening.sql`, `202608210002_rate_limit_timestamp_fix.sql`, and `202608210003_atomic_event_mutations.sql` are deployed to the remote project.
+- Live concurrent recurrence verification confirmed atomic conflict handling (`201` plus `409`).
 - Google provider enabled.
 - Google consent endpoint accepted the callback URI.
 - Temporary Auth user created and removed.
@@ -695,17 +708,17 @@ The main branch tracks:
 - Settings, profile-aware scheduling, persistent light/dark theme and URL routing.
 - Native Gemini streaming, rate limiting, generated titles and conversation management.
 - One-command local development.
-- Backend tests and production frontend build.
+- Backend/frontend tests, production frontend build and GitHub CI.
 - Live Supabase/Gemini integration validation.
 - GitHub synchronization.
 
 ### Hạn chế hiện tại / Current Limitations
 
 - The calendar is Google Calendar-inspired but does **not** synchronize with the external Google Calendar API.
-- The mobile layout hides the Calendar sidebar and does not yet provide a dedicated mobile filter drawer.
-- Automated frontend component and end-to-end browser tests are not yet included.
+- The mobile Calendar uses an off-canvas sidebar; final device-specific visual QA remains recommended.
+- Frontend regression tests are included; a signed-in OAuth browser E2E suite is not yet included.
 - The root development command currently targets Windows virtual-environment paths.
-- Production hosting, custom domains, production OAuth origins, CI/CD, monitoring, and backups are not configured.
+- Production hosting, custom domains, production OAuth origins, error tracking, monitoring and backups depend on the deployment platform and are not configured yet.
 - The application intentionally uses an in-app upcoming-event badge; browser push/email reminders are not included.
 
 ---
@@ -715,10 +728,9 @@ The main branch tracks:
 ### Near Term
 
 - Add conversation search.
-- Add frontend component tests and Playwright end-to-end tests.
-- Add a mobile Calendar filter drawer.
-- Add retry actions to existing user-facing error toasts.
-- Add production deployment configuration and CI checks.
+- Add a signed-in OAuth browser E2E suite for the selected deployment environment.
+- Add production hosting configuration after choosing the hosting provider and custom domain.
+- Add error tracking, metrics and automated backup verification.
 
 ### Medium Term
 

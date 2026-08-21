@@ -37,6 +37,7 @@ class ChatImage(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(default="", max_length=12000)
     conversation_id: UUID | None = None
+    operation_id: UUID | None = None
     images: list[ChatImage] = Field(default_factory=list, max_length=3)
 
     @model_validator(mode="after")
@@ -58,5 +59,6 @@ class CalendarAction(BaseModel):
 
 class ChatResponse(BaseModel):
     conversation_id: UUID
+    operation_id: UUID | None = None
     message: Message
     actions: list[CalendarAction] = Field(default_factory=list)

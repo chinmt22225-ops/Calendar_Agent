@@ -18,7 +18,8 @@ See [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for the complete biling
 - Kiểm tra xung đột thời gian ở cả REST API và công cụ AI.
 - Tasks trong sidebar, Thùng rác khôi phục/xóa vĩnh viễn, trạng thái hoàn thành và badge sự kiện 24 giờ tới.
 - Settings hồ sơ, lịch AI tôn trọng giờ học, URL `/chat`/`/calendar`, giao diện Sáng/Tối được lưu.
-- Rate limit 10 yêu cầu AI/phút/người dùng và toast lỗi thân thiện.
+- Rate limit dùng chung qua PostgreSQL, 10 yêu cầu AI/phút/người dùng, và toast lỗi thân thiện.
+- Lưu hội thoại nguyên tử bằng database RPC, giới hạn recurrence/tool input và báo rõ kế hoạch học còn thiếu.
 
 ## Cấu trúc
 
@@ -111,17 +112,15 @@ Mở `http://localhost:5173`.
 ## Kiểm thử
 
 ```powershell
-cd backend
-.\.venv\Scripts\python.exe -m pytest -q
-
-cd ..\frontend
+npm test
 npm run build
 ```
 
 Tình trạng kiểm thử hiện tại:
 
-- Backend: `10 passed`.
-- Frontend: TypeScript check và production build thành công.
+- Backend: unit, API, schema-contract và concurrency regression tests.
+- Frontend: Vitest cho timezone/DST/theme, TypeScript check và production build.
+- GitHub Actions tự chạy hai suite, production build và bundle budget trên mọi push/PR.
 
 ## Triển khai database
 
@@ -141,6 +140,7 @@ Không commit `supabase/.env`; file này chứa quyền quản trị project và
 ## API chính
 
 - `GET /health`
+- `GET /ready`
 - `GET|POST /api/events`
 - `PATCH|DELETE /api/events/{id}`
 - `GET /api/events/trash`

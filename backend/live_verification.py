@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import secrets
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
 import httpx
@@ -25,6 +26,13 @@ def verify() -> None:
         session = public.auth.sign_in_with_password({"email": email, "password": password}).session
         assert session
         headers = {"Authorization": f"Bearer {session.access_token}"}
+        rate_limit_probe = admin.rpc("consume_api_rate_limit", {
+            "p_user_id": user_id,
+            "p_bucket": "smoke_probe",
+            "p_limit": 2,
+            "p_window_seconds": 60,
+        }).execute().data
+        assert rate_limit_probe["allowed"] is True
         start_day = date.today() + timedelta(days=30)
         start = f"{start_day.isoformat()}T08:00:00+07:00"
         end = f"{start_day.isoformat()}T09:00:00+07:00"
@@ -59,6 +67,36 @@ def verify() -> None:
             completed = api.patch(f"/events/{event_id}", json={"status": "completed"}); completed.raise_for_status()
             assert api.delete(f"/events/{event_id}").status_code == 204
             assert api.delete(f"/events/{event_id}/permanent").status_code == 204
+
+            atomic_start = start_day + timedelta(days=7)
+            atomic_payloads = [
+                {
+                    "title": "Atomic recurrence A",
+                    "start_time": f"{atomic_start.isoformat()}T08:00:00+07:00",
+                    "end_time": f"{atomic_start.isoformat()}T09:00:00+07:00",
+                    "color": "#3b55b2", "category": "Smoke test",
+                    "status": "scheduled", "is_ai_generated": False,
+                    "all_day": False, "recurrence_rule": "weekly",
+                    "recurrence_end": (atomic_start + timedelta(days=14)).isoformat(),
+                },
+                {
+                    "title": "Atomic recurrence B",
+                    "start_time": f"{(atomic_start + timedelta(days=7)).isoformat()}T08:30:00+07:00",
+                    "end_time": f"{(atomic_start + timedelta(days=7)).isoformat()}T09:30:00+07:00",
+                    "color": "#5f548a", "category": "Smoke test",
+                    "status": "scheduled", "is_ai_generated": False,
+                    "all_day": False, "recurrence_rule": "weekly",
+                    "recurrence_end": (atomic_start + timedelta(days=21)).isoformat(),
+                },
+            ]
+            def create_atomic(payload):
+                return httpx.post(
+                    "http://127.0.0.1:8000/api/events",
+                    headers=headers, json=payload, timeout=30,
+                )
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                atomic_responses = list(pool.map(create_atomic, atomic_payloads))
+            assert sorted(response.status_code for response in atomic_responses) == [201, 409]
 
             task = api.post("/tasks", json={
                 "title": "Task smoke test", "subject": "QA", "estimated_hours": 1,

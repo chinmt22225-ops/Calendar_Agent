@@ -8,7 +8,7 @@ export type ChatMessage = {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
-  metadata?: { actions?: CalendarAction[]; image_count?: number; image_previews?: string[] }
+  metadata?: { actions?: CalendarAction[]; image_count?: number; image_previews?: string[]; error?: boolean }
   created_at?: string
 }
 
