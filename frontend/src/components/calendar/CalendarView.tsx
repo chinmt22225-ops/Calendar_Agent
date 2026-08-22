@@ -110,12 +110,13 @@ function ScheduleCalendar({ events, selectedDate, timeZone, dayStart, dayEnd, th
   const resize = useMemo(() => createResizePlugin(15), [])
   const callbacksRef = useRef({ onSelectedDate, onOpenEvent, onCreateAt, onInteraction })
   callbacksRef.current = { onSelectedDate, onOpenEvent, onCreateAt, onInteraction }
+  const savedView = (localStorage.getItem('planora_calendar_view') || 'week') as 'day' | 'week' | 'month-grid' | 'month-agenda'
   const calendar = useCalendarApp({
     locale: 'vi-VN',
     translations: vietnameseTranslations,
     timezone: timeZone,
     selectedDate: Temporal.PlainDate.from(selectedDate),
-    defaultView: 'week',
+    defaultView: savedView,
     firstDayOfWeek: 1,
     isResponsive: true,
     isDark: theme === 'dark',
@@ -134,6 +135,14 @@ function ScheduleCalendar({ events, selectedDate, timeZone, dayStart, dayEnd, th
     calendars: planoraCalendars,
     callbacks: {
       onSelectedDateUpdate: (date) => callbacksRef.current.onSelectedDate(date.toString()),
+      onRangeUpdate: () => {
+        try {
+          const currentView = calendarControls.getView()
+          if (currentView) {
+            localStorage.setItem('planora_calendar_view', currentView)
+          }
+        } catch {}
+      },
       onEventClick: (event) => callbacksRef.current.onOpenEvent(String((event as PlanoraScheduleXEvent).sourceId || event.id).split('__')[0]),
       onClickDate: (date) => callbacksRef.current.onCreateAt(initialRangeFromDate(date)),
       onClickDateTime: (dateTime) => callbacksRef.current.onCreateAt(initialRangeFromDateTime(dateTime)),
@@ -144,6 +153,14 @@ function ScheduleCalendar({ events, selectedDate, timeZone, dayStart, dayEnd, th
 
   useEffect(() => { calendar?.events.set(events) }, [calendar, events])
   useEffect(() => { calendar?.setTheme(theme) }, [calendar, theme])
+  useEffect(() => {
+    try {
+      const storedView = localStorage.getItem('planora_calendar_view')
+      if (storedView && calendarControls.getView() !== storedView) {
+        calendarControls.setView(storedView)
+      }
+    } catch {}
+  }, [calendarControls])
   useEffect(() => {
     const nextDate = Temporal.PlainDate.from(selectedDate)
     if (!calendarControls.getDate().equals(nextDate)) calendarControls.setDate(nextDate)
