@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react'
-import { Bell, Calendar, ChevronRight, X, Sparkles, Volume2 } from 'lucide-react'
 import { useCalendar } from './CalendarContext'
 import { useProfile } from './ProfileContext'
 import { eventOccurrencesBetween } from '../lib/recurrence'
@@ -18,17 +17,11 @@ export type ReminderAlert = {
 }
 
 interface NotificationContextType {
-  alerts: ReminderAlert[]
-  dismissAlert: (id: string) => void
-  testNotification: () => void
   permission: NotificationPermission
   requestBrowserPermission: () => Promise<boolean>
 }
 
 const NotificationContext = createContext<NotificationContextType>({
-  alerts: [],
-  dismissAlert: () => undefined,
-  testNotification: () => undefined,
   permission: 'default',
   requestBrowserPermission: async () => false,
 })
@@ -36,7 +29,9 @@ const NotificationContext = createContext<NotificationContextType>({
 // Gentle notification chime (Web Audio API synthesized without external assets)
 function playNotificationChime() {
   try {
-    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
     if (!AudioContextClass) return
     const ctx = new AudioContextClass()
     const osc = ctx.createOscillator()
@@ -57,7 +52,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const { events, focusEvent } = useCalendar()
   const { profile } = useProfile()
   const navigate = useSmoothNavigate()
-  const [alerts, setAlerts] = useState<ReminderAlert[]>([])
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   )
@@ -109,10 +103,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [])
 
-  const dismissAlert = useCallback((id: string) => {
-    setAlerts((current) => current.filter((a) => a.id !== id))
-  }, [])
-
   const requestBrowserPermission = useCallback(async (): Promise<boolean> => {
     if (typeof Notification === 'undefined') return false
     try {
@@ -124,73 +114,53 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const showPopup = useCallback((alert: ReminderAlert) => {
-    // 1. Play gentle audio chime
-    playNotificationChime()
+  const triggerDesktopNotification = useCallback(
+    (alert: ReminderAlert) => {
+      // 1. Play gentle audio chime
+      playNotificationChime()
 
-    // 2. In-app bottom-right pop-up card
-    setAlerts((current) => {
-      if (current.some((a) => a.id === alert.id)) return current
-      return [...current, alert]
-    })
-
-    // 3. Native Desktop / OS Notification (shows even if user is on another browser tab or app)
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      try {
-        const timeStr = alert.startTime.toLocaleTimeString('vi-VN', {
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-        const minutesText =
-          alert.minutesUntil <= 0
-            ? 'đang bắt đầu ngay bây giờ'
-            : `sẽ bắt đầu sau ${alert.minutesUntil} phút (${timeStr})`
-        const title = `⏰ Planora: ${alert.title}`
-        const options: NotificationOptions = {
-          body: `Môn/Sự kiện: ${alert.category} - ${minutesText}`,
-          icon: '/favicon.svg',
-          badge: '/favicon.svg',
-          tag: alert.id,
-          requireInteraction: true, // Keeps notification visible in OS Action Center
-          data: {
-            eventId: alert.eventId,
-            startTime: alert.startTime.toISOString(),
-            url: '/calendar',
-          },
-        }
-
-        if (swRegRef.current && 'showNotification' in swRegRef.current) {
-          swRegRef.current.showNotification(title, options).catch(() => {
-            new Notification(title, options)
+      // 2. Native Desktop / OS Notification (shows even if user is on another browser tab or app)
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        try {
+          const timeStr = alert.startTime.toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
           })
-        } else {
-          const notif = new Notification(title, options)
-          notif.onclick = () => {
-            window.focus()
-            focusEvent(alert.eventId, alert.startTime)
-            navigate('/calendar')
+          const minutesText =
+            alert.minutesUntil <= 0
+              ? 'đang bắt đầu ngay bây giờ'
+              : `sẽ bắt đầu sau ${alert.minutesUntil} phút (${timeStr})`
+          const title = `⏰ Planora: ${alert.title}`
+          const options: NotificationOptions = {
+            body: `Môn/Sự kiện: ${alert.category} - ${minutesText}`,
+            icon: '/favicon.svg',
+            badge: '/favicon.svg',
+            tag: alert.id,
+            requireInteraction: true, // Keeps notification visible in OS Action Center
+            data: {
+              eventId: alert.eventId,
+              startTime: alert.startTime.toISOString(),
+              url: '/calendar',
+            },
           }
-        }
-      } catch {}
-    }
-  }, [focusEvent, navigate])
 
-  const testNotification = useCallback(() => {
-    const targetEvent = events[0]
-    const fakeStart = new Date(Date.now() + 10 * 60 * 1000)
-    const testAlert: ReminderAlert = {
-      id: `test-${Date.now()}`,
-      eventId: targetEvent?.id || 'test',
-      title: targetEvent?.title || 'Dạy Toán Tiếng Anh (Test thông báo)',
-      category: targetEvent?.category || 'Học tập',
-      color: targetEvent?.color || '#d93662',
-      startTime: fakeStart,
-      minutesUntil: 10,
-      isAiGenerated: targetEvent?.is_ai_generated ?? true,
-      description: 'Lịch kiểm tra tính năng pop-up góc phải',
-    }
-    showPopup(testAlert)
-  }, [events, showPopup])
+          if (swRegRef.current && 'showNotification' in swRegRef.current) {
+            swRegRef.current.showNotification(title, options).catch(() => {
+              new Notification(title, options)
+            })
+          } else {
+            const notif = new Notification(title, options)
+            notif.onclick = () => {
+              window.focus()
+              focusEvent(alert.eventId, alert.startTime)
+              navigate('/calendar')
+            }
+          }
+        } catch {}
+      }
+    },
+    [focusEvent, navigate]
+  )
 
   // Periodic Reminder Checker (runs every 30 seconds while tab is open)
   useEffect(() => {
@@ -215,7 +185,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             notifiedKeysRef.current.add(notifyKey)
             saveNotifiedKeys()
 
-            showPopup({
+            triggerDesktopNotification({
               id: notifyKey,
               eventId: event.id,
               title: event.title,
@@ -236,83 +206,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     const interval = window.setInterval(checkUpcoming, 30_000)
     return () => window.clearInterval(interval)
-  }, [events, profile?.timezone, saveNotifiedKeys, showPopup])
+  }, [events, profile?.timezone, saveNotifiedKeys, triggerDesktopNotification])
 
   return (
     <NotificationContext.Provider
       value={{
-        alerts,
-        dismissAlert,
-        testNotification,
         permission,
         requestBrowserPermission,
       }}
     >
       {children}
-
-      {/* Pop-up Notification Container at Bottom-Right Corner */}
-      <aside className="planora-notification-stack" aria-live="assertive">
-        {alerts.map((alert) => (
-          <div
-            key={alert.id}
-            className="planora-reminder-card"
-            style={{ '--reminder-accent': alert.color } as React.CSSProperties}
-          >
-            <div className="reminder-header">
-              <div className="reminder-badge">
-                <Bell className="reminder-bell-icon" size={14} />
-                <span>Nhắc nhở sự kiện</span>
-              </div>
-              <button
-                className="reminder-close-btn"
-                onClick={() => dismissAlert(alert.id)}
-                aria-label="Đóng thông báo"
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            <div className="reminder-body">
-              <h4 className="reminder-title">
-                {alert.isAiGenerated && (
-                  <Sparkles size={13} className="reminder-ai-icon" aria-label="AI sắp xếp" />
-                )}
-                {alert.title}
-              </h4>
-              <p className="reminder-time">
-                {alert.minutesUntil <= 0 ? (
-                  <strong className="time-highlight urgent">Bắt đầu ngay bây giờ!</strong>
-                ) : (
-                  <>
-                    Bắt đầu sau <strong>{alert.minutesUntil} phút</strong> (
-                    {alert.startTime.toLocaleTimeString('vi-VN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                    )
-                  </>
-                )}
-              </p>
-              {alert.category && <span className="reminder-category">{alert.category}</span>}
-            </div>
-
-            <div className="reminder-footer">
-              <button
-                className="reminder-view-btn"
-                onClick={() => {
-                  dismissAlert(alert.id)
-                  focusEvent(alert.eventId, alert.startTime)
-                  navigate('/calendar')
-                }}
-              >
-                <Calendar size={14} />
-                <span>Xem trên Lịch</span>
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-        ))}
-      </aside>
     </NotificationContext.Provider>
   )
 }

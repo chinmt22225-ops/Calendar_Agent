@@ -19,7 +19,7 @@ export function Navbar() {
   const { events, focusEvent } = useCalendar()
   const { profile } = useProfile()
   const { theme, toggleTheme } = useTheme()
-  const { testNotification, permission, requestBrowserPermission } = useNotification()
+  const { permission, requestBrowserPermission } = useNotification()
   const notify = useToast()
   const location = useLocation()
   const navigate = useSmoothNavigate()
@@ -108,12 +108,6 @@ export function Navbar() {
               <div><strong>Sắp tới</strong><small>Trong 24 giờ tới</small></div>
               <span>{upcoming.length}</span>
             </header>
-            <div className="popover-notif-action">
-              <span>🔔 Pop-up góc phải:</span>
-              <button onClick={() => { testNotification(); notify('Đã gửi thử pop-up nhắc nhở ở góc dưới bên phải!', 'success') }}>
-                Thử nghiệm
-              </button>
-            </div>
             {permission !== 'granted' && (
               <div className="popover-notif-action">
                 <span>Thông báo màn hình:</span>
