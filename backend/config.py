@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     supabase_publishable_key: str = ""
     supabase_service_role_key: str = ""
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_model: str = "auto"
+    groq_api_key: str = ""
     default_timezone: str = "Asia/Ho_Chi_Minh"
 
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", extra="ignore")
@@ -27,6 +28,10 @@ class Settings(BaseSettings):
     @property
     def gemini_configured(self) -> bool:
         return bool(self.gemini_api_key)
+
+    @property
+    def groq_configured(self) -> bool:
+        return bool(self.groq_api_key)
 
 
 @lru_cache

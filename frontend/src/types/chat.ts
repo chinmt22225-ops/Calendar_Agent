@@ -4,6 +4,19 @@ export type CalendarAction = {
   event_ids: string[]
 }
 
+export type ChatModelInfo = {
+  id: string
+  name: string
+  provider: 'google' | 'groq' | 'openai'
+  tier: 'top' | 'balanced' | 'speed' | 'safety'
+  tier_label: string
+  intelligence_score: number
+  supports_vision: boolean
+  supports_tools: boolean
+  description: string
+  badge_color: string
+}
+
 export type ChatMessage = {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -16,6 +29,8 @@ export type ChatMessage = {
     error_code?: string
     retryable?: boolean
     retry_after?: number
+    model_used?: string
+    model_name?: string
   }
   created_at?: string
 }

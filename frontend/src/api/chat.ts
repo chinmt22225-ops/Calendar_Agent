@@ -1,4 +1,4 @@
-import type { CalendarAction, ChatImagePayload, ChatMessage, Conversation } from '../types/chat'
+import type { CalendarAction, ChatImagePayload, ChatMessage, ChatModelInfo, Conversation } from '../types/chat'
 import { api, getAccessToken } from './client'
 import { supabase } from '../lib/supabase'
 
@@ -21,6 +21,11 @@ export class ChatRequestError extends Error {
     this.retryAfter = retryAfter
     this.retryable = retryable
   }
+}
+
+export async function fetchChatModels() {
+  const { data } = await api.get<ChatModelInfo[]>('/chat/models')
+  return data
 }
 
 export async function fetchConversations() {
@@ -50,12 +55,19 @@ export async function streamMessage(
   handlers: {
     onStart: (conversationId: string) => void
     onToken: (token: string) => void
-    onActions: (actions: CalendarAction[]) => void
-    onDone?: () => void
+    onActions: (actions: CalendarAction[], metadata?: { model_used?: string; model_name?: string }) => void
+    onDone?: (metadata?: { model_used?: string; model_name?: string }) => void
   },
   signal?: AbortSignal,
+  model: string = 'auto',
 ) {
-  const requestBody = JSON.stringify({ message, conversation_id: conversationId, operation_id: operationId, images })
+  const requestBody = JSON.stringify({
+    message,
+    conversation_id: conversationId,
+    operation_id: operationId,
+    images,
+    model,
+  })
   const apiBase =
     import.meta.env.VITE_API_URL ||
     (import.meta.env.PROD
@@ -95,8 +107,17 @@ export async function streamMessage(
       catch { throw new ChatRequestError('Phản hồi từ Trợ lý AI không đúng định dạng.') }
       if (payload.type === 'start') handlers.onStart(payload.conversation_id)
       if (payload.type === 'token') handlers.onToken(payload.content)
-      if (payload.type === 'actions') handlers.onActions(payload.actions)
-      if (payload.type === 'done') { completed = true; handlers.onDone?.() }
+      if (payload.type === 'actions') handlers.onActions(payload.actions, {
+        model_used: payload.model_used,
+        model_name: payload.model_name,
+      })
+      if (payload.type === 'done') {
+        completed = true
+        handlers.onDone?.({
+          model_used: payload.model_used,
+          model_name: payload.model_name,
+        })
+      }
       if (payload.type === 'error') throw new ChatRequestError(payload.detail || 'Trợ lý AI gặp lỗi.', {
         status: payload.status,
         code: payload.code,

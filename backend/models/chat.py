@@ -39,6 +39,7 @@ class ChatRequest(BaseModel):
     conversation_id: UUID | None = None
     operation_id: UUID | None = None
     images: list[ChatImage] = Field(default_factory=list, max_length=3)
+    model: str = Field(default="auto", max_length=64)
 
     @model_validator(mode="after")
     def validate_content(self):

@@ -31,6 +31,9 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
   const [conversationsError, setConversationsError] = useState('')
   const [conversationLoading, setConversationLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [selectedModel, setSelectedModel] = useState<string>(
+    () => localStorage.getItem('planora_selected_model') || 'auto'
+  )
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
   const [lastRequest, setLastRequest] = useState<PendingRequest | null>(null)
@@ -125,19 +128,67 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
       frame = window.requestAnimationFrame(() => { frame = null; flush() })
     }
     try {
-      await streamMessage(content, conversationId, images.map(({ mime_type, data }) => ({ mime_type, data })), crypto.randomUUID(), {
-        onStart: (id) => { if (generation !== generationRef.current) return; started = true; setConversationId(id) },
-        onToken: scheduleToken,
-        onActions: (actions: CalendarAction[]) => {
-          if (generation !== generationRef.current) return
-          if (frame !== null) { window.cancelAnimationFrame(frame); frame = null }
-          flush()
-          setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, metadata: { ...item.metadata, actions } } : item))
-          if (actions.some((action) => action.type.startsWith('task_'))) {
-            window.dispatchEvent(new Event('planora:tasks-changed'))
-          }
+      await streamMessage(
+        content,
+        conversationId,
+        images.map(({ mime_type, data }) => ({ mime_type, data })),
+        crypto.randomUUID(),
+        {
+          onStart: (id) => {
+            if (generation !== generationRef.current) return
+            started = true
+            setConversationId(id)
+          },
+          onToken: scheduleToken,
+          onActions: (actions: CalendarAction[], metadata) => {
+            if (generation !== generationRef.current) return
+            if (frame !== null) {
+              window.cancelAnimationFrame(frame)
+              frame = null
+            }
+            flush()
+            setMessages((current) =>
+              current.map((item) =>
+                item.id === assistantId
+                  ? {
+                      ...item,
+                      metadata: {
+                        ...item.metadata,
+                        actions,
+                        model_used: metadata?.model_used || item.metadata?.model_used,
+                        model_name: metadata?.model_name || item.metadata?.model_name,
+                      },
+                    }
+                  : item
+              )
+            )
+            if (actions.some((action) => action.type.startsWith('task_'))) {
+              window.dispatchEvent(new Event('planora:tasks-changed'))
+            }
+          },
+          onDone: (metadata) => {
+            if (generation !== generationRef.current) return
+            if (metadata?.model_used || metadata?.model_name) {
+              setMessages((current) =>
+                current.map((item) =>
+                  item.id === assistantId
+                    ? {
+                        ...item,
+                        metadata: {
+                          ...item.metadata,
+                          model_used: metadata?.model_used || item.metadata?.model_used,
+                          model_name: metadata?.model_name || item.metadata?.model_name,
+                        },
+                      }
+                    : item
+                )
+              )
+            }
+          },
         },
-      }, controller.signal)
+        controller.signal,
+        selectedModel
+      )
       if (generation !== generationRef.current) return
       if (frame !== null) { window.cancelAnimationFrame(frame); frame = null }
       flush()
@@ -203,7 +254,17 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
           <div ref={endRef} />
         </div>
         {conversationsError && conversations.length === 0 && <div className="offline-hint"><AlertTriangle size={14} /> Lịch sử đang tạm thời không khả dụng; bạn vẫn có thể bắt đầu cuộc trò chuyện mới.</div>}
-        <ChatInput disabled={conversationLoading || streaming} streaming={streaming} onStop={() => abortRef.current?.abort()} onSend={send} />
+        <ChatInput
+          disabled={conversationLoading || streaming}
+          streaming={streaming}
+          selectedModel={selectedModel}
+          onSelectModel={(modelId) => {
+            setSelectedModel(modelId)
+            localStorage.setItem('planora_selected_model', modelId)
+          }}
+          onStop={() => abortRef.current?.abort()}
+          onSend={send}
+        />
       </section>
       <Dialog open={Boolean(renameTarget)} title="Đổi tên cuộc trò chuyện" description="Đặt tên ngắn gọn để dễ tìm lại trong lịch sử." confirmLabel="Lưu" busy={dialogBusy} onClose={() => !dialogBusy && setRenameTarget(null)} onConfirm={saveRename}>
         <label className="field"><span>Tên cuộc trò chuyện</span><input autoFocus maxLength={100} value={renameTitle} onChange={(event) => setRenameTitle(event.target.value)} /></label>

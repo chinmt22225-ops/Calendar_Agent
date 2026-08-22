@@ -14,6 +14,8 @@ from agent.gemini_agent import (
     fallback_conversation_title,
     run_calendar_agent,
 )
+from agent.model_registry import get_available_models
+from config import get_settings
 from db.auth import get_current_user_id
 from db.rate_limit import enforce_chat_rate_limit
 from db.supabase_client import get_supabase
@@ -157,7 +159,9 @@ def _process_chat(payload: ChatRequest, user_id: UUID, client: Client) -> ChatRe
         )
     history = [] if is_new else _load_history(conversation_id, user_id, client)
     try:
-        text, actions = run_calendar_agent(payload.message, user_id, client, history, payload.images)
+        text, actions, model_used = run_calendar_agent(
+            payload.message, user_id, client, history, payload.images, model=payload.model
+        )
         stored_user_message = payload.message.strip() or f"[Đã gửi {len(payload.images)} ảnh]"
         stored = _persist_exchange(
             operation_id, conversation_id, is_new, stored_user_message, text,
@@ -173,11 +177,32 @@ def _process_chat(payload: ChatRequest, user_id: UUID, client: Client) -> ChatRe
             id=UUID(stored["id"]),
             role="assistant",
             content=text,
-            metadata={"actions": actions},
+            metadata={"actions": actions, "model_used": model_used},
             created_at=datetime.fromisoformat(stored["created_at"].replace("Z", "+00:00")),
         ),
         actions=[CalendarAction.model_validate(action) for action in actions],
     )
+
+
+@router.get("/models")
+def list_models():
+    settings = get_settings()
+    models = get_available_models(has_groq_key=settings.groq_configured)
+    return [
+        {
+            "id": m.id,
+            "name": m.name,
+            "provider": m.provider,
+            "tier": m.tier,
+            "tier_label": m.tier_label,
+            "intelligence_score": m.intelligence_score,
+            "supports_vision": m.supports_vision,
+            "supports_tools": m.supports_tools,
+            "description": m.description,
+            "badge_color": m.badge_color,
+        }
+        for m in models
+    ]
 
 
 @router.get("/conversations")
@@ -322,7 +347,9 @@ async def stream_chat(
         parts: list[str] = []
         pending_token: asyncio.Task | None = None
         try:
-            session = await run_in_threadpool(CalendarAgentSession, user_id, client, history)
+            session = await run_in_threadpool(
+                CalendarAgentSession, user_id, client, history, payload.model
+            )
             stream = session.stream(payload.message, payload.images).__aiter__()
             while True:
                 if pending_token is None:
@@ -361,8 +388,17 @@ async def stream_chat(
                 client,
                 initial_title,
             )
-            yield _sse({"type": "actions", "actions": session.actions})
-            yield _sse({"type": "done"})
+            yield _sse({
+                "type": "actions",
+                "actions": session.actions,
+                "model_used": session.model_used,
+                "model_name": session.model_name,
+            })
+            yield _sse({
+                "type": "done",
+                "model_used": session.model_used,
+                "model_name": session.model_name,
+            })
         except asyncio.CancelledError:
             if pending_token is not None and not pending_token.done():
                 pending_token.cancel()

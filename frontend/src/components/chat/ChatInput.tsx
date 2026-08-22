@@ -1,6 +1,7 @@
 import { ArrowUp, ImagePlus, Square, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react'
 import type { ChatImageAttachment } from '../../types/chat'
+import { ModelSelector } from './ModelSelector'
 
 const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 const maxImages = 3
@@ -20,10 +21,12 @@ function readImage(file: File): Promise<ChatImageAttachment> {
   })
 }
 
-export function ChatInput({ initialValue = '', disabled, streaming, onSend, onStop }: {
+export function ChatInput({ initialValue = '', disabled, streaming, selectedModel = 'auto', onSelectModel, onSend, onStop }: {
   initialValue?: string
   disabled: boolean
   streaming: boolean
+  selectedModel?: string
+  onSelectModel?: (modelId: string) => void
   onSend: (value: string, images: ChatImageAttachment[]) => void
   onStop: () => void
 }) {
@@ -122,7 +125,14 @@ export function ChatInput({ initialValue = '', disabled, streaming, onSend, onSt
         {processing && <span className="image-processing">Đang xử lý ảnh…</span>}
       </div>
       {attachmentError && <span className="attachment-error">{attachmentError}</span>}
-      <small>Dán ảnh bằng Ctrl+V hoặc chọn từ máy · tối đa 3 ảnh, 4 MB/ảnh.</small>
+      <div className="flex items-center justify-between mt-1 px-0.5 text-xs text-slate-400 gap-2">
+        <small className="text-slate-400 truncate">Dán ảnh bằng Ctrl+V hoặc chọn từ máy · tối đa 3 ảnh.</small>
+        {onSelectModel && (
+          <div className="shrink-0">
+            <ModelSelector selectedModel={selectedModel} onSelectModel={onSelectModel} />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

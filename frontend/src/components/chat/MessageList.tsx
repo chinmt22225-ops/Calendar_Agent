@@ -59,6 +59,12 @@ export function MessageList({ messages, streaming, onViewCalendar, onRetry }: {
             {message.metadata?.actions?.map((action, actionIndex) => (
               <InlineEventPill key={`${message.id}-${actionIndex}`} action={action} onViewCalendar={onViewCalendar} />
             ))}
+            {message.role === 'assistant' && (message.metadata?.model_name || message.metadata?.model_used) && !message.metadata?.error && (
+              <div className="flex items-center gap-1.5 mt-2 pt-1 text-[11px] text-slate-400 select-none border-t border-slate-800/40">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
+                <span>Trả lời bởi <strong className="text-slate-300 font-medium">{message.metadata.model_name || message.metadata.model_used}</strong></span>
+              </div>
+            )}
           </div>
         </article>
       ))}
