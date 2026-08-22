@@ -56,7 +56,12 @@ export async function streamMessage(
   signal?: AbortSignal,
 ) {
   const requestBody = JSON.stringify({ message, conversation_id: conversationId, operation_id: operationId, images })
-  const request = (token: string) => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/chat/stream`, {
+  const apiBase =
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.PROD
+      ? 'https://planora-317k.onrender.com/api'
+      : 'http://localhost:8000/api')
+  const request = (token: string) => fetch(`${apiBase}/chat/stream`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: requestBody, signal,
   })
