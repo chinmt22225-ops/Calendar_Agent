@@ -222,6 +222,40 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .planora-event--completed .sx-planora-event strong { text-decoration: line-through; }
 .planora-event--cancelled { opacity: .48; filter: grayscale(.45); }
 .planora-event--ai { box-shadow: 0 3px 10px rgb(46 26 33 / .1); }
+
+/* Spotlight Glow & Pulse Animation when navigated from Notification */
+@keyframes planora-event-spotlight {
+  0% {
+    box-shadow: 0 0 0 0 var(--planora-event-color, #ea4c78), 0 8px 24px rgb(0 0 0 / .35);
+    transform: scale(1.04) translateY(-2px);
+    filter: brightness(1.2);
+  }
+  25% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--planora-event-color, #ea4c78) 70%, transparent), 0 16px 36px rgb(0 0 0 / .48);
+    transform: scale(1.06) translateY(-3px);
+    filter: brightness(1.3);
+  }
+  60% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--planora-event-color, #ea4c78) 35%, transparent), 0 8px 20px rgb(0 0 0 / .25);
+    transform: scale(1.02) translateY(-1px);
+    filter: brightness(1.1);
+  }
+  100% {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--planora-event-color) 24%, transparent);
+    transform: scale(1) translateY(0);
+    filter: brightness(1);
+  }
+}
+
+.sx-planora-event.planora-event--spotlight,
+.sx__time-grid-event:has(.planora-event--spotlight),
+.sx__date-grid-event:has(.planora-event--spotlight),
+.sx__month-grid-event:has(.planora-event--spotlight) {
+  z-index: 90 !important;
+  animation: planora-event-spotlight 2.8s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  will-change: transform, box-shadow, filter;
+}
+
 .sx__view-container > * { animation: none; }
 .calendar-loading { z-index: 20; top: 22px; right: 28px; border: 1px solid var(--pl-line); border-radius: 999px; color: var(--pl-brand-700); background: var(--pl-surface); box-shadow: var(--pl-shadow-sm); }
 .calendar-state { z-index: 12; inset: 72px 14px 14px; border-color: var(--pl-line); border-radius: 14px; background: color-mix(in srgb, var(--pl-surface) 94%, transparent); backdrop-filter: blur(8px); }

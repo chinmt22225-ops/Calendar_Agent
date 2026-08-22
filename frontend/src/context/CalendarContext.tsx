@@ -4,12 +4,21 @@ import type { CalendarEvent, EventDraft } from '../types/calendar'
 import { useAuth } from './AuthContext'
 import { useToast } from './ToastContext'
 
+type FocusTarget = {
+  eventId: string
+  date?: string
+  timestamp: number
+}
+
 type CalendarContextValue = {
   events: CalendarEvent[]
   loading: boolean
   error: string | null
   categories: string[]
   categoryColors: Record<string, string>
+  focusTarget: FocusTarget | null
+  focusEvent: (eventId: string, date?: string | Date) => void
+  clearFocus: () => void
   refresh: () => Promise<void>
   create: (event: EventDraft) => Promise<CalendarEvent>
   update: (id: string, changes: Partial<EventDraft>) => Promise<CalendarEvent>
@@ -24,7 +33,24 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null)
   const refreshSequence = useRef(0)
+
+  const focusEvent = useCallback((eventId: string, date?: string | Date) => {
+    let dateStr: string | undefined = undefined
+    if (date) {
+      if (typeof date === 'string') {
+        dateStr = date.slice(0, 10)
+      } else if (date instanceof Date) {
+        dateStr = date.toISOString().slice(0, 10)
+      }
+    }
+    setFocusTarget({ eventId, date: dateStr, timestamp: Date.now() })
+  }, [])
+
+  const clearFocus = useCallback(() => {
+    setFocusTarget(null)
+  }, [])
 
   const refresh = useCallback(async () => {
     if (!user) return
@@ -54,6 +80,9 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     error,
     categories: [...new Set(events.map((event) => event.category))],
     categoryColors: Object.fromEntries(events.map((event) => [event.category, event.color])),
+    focusTarget,
+    focusEvent,
+    clearFocus,
     refresh,
     create: async (draft) => {
       const created = await eventsApi.createEvent(draft)
@@ -69,7 +98,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       await eventsApi.deleteEvent(id)
       setEvents((current) => current.filter((event) => event.id !== id))
     },
-  }), [error, events, loading, refresh])
+  }), [clearFocus, error, events, focusEvent, focusTarget, loading, refresh])
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>
 }

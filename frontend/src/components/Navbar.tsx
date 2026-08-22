@@ -16,7 +16,7 @@ export type AppView = 'chat' | 'calendar'
 
 export function Navbar() {
   const { user, signOut } = useAuth()
-  const { events } = useCalendar()
+  const { events, focusEvent } = useCalendar()
   const { profile } = useProfile()
   const { theme, toggleTheme } = useTheme()
   const { testNotification, permission, requestBrowserPermission } = useNotification()
@@ -36,7 +36,13 @@ export function Navbar() {
     const start = new Date(); const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
     return events.flatMap((event) => {
       return eventOccurrencesBetween(event, start, end, profile?.timezone || 'Asia/Ho_Chi_Minh')
-        .map((occurrence, index) => ({ id: `${event.id}-${occurrence.getTime()}-${index}`, title: event.title, start: occurrence, color: event.color }))
+        .map((occurrence, index) => ({
+          id: `${event.id}-${occurrence.getTime()}-${index}`,
+          rawEventId: event.id,
+          title: event.title,
+          start: occurrence,
+          color: event.color,
+        }))
     }).sort((a, b) => a.start.getTime() - b.start.getTime()).slice(0, 6)
   }, [events, profile?.timezone])
 
@@ -119,8 +125,14 @@ export function Navbar() {
                 </button>
               </div>
             )}
-            {upcoming.length === 0 ? <div className="popover-empty"><Bell size={22} /><p>Chưa có sự kiện sắp tới.</p></div> : <div className="upcoming-list">{upcoming.map((item) => <button key={item.id} onClick={() => { setNotificationsOpen(false); navigate('/calendar') }}><span className="event-dot" style={{ backgroundColor: item.color }} /><span><strong>{item.title}</strong><small>{item.start.toLocaleString('vi-VN', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: profile?.timezone })}</small></span><ChevronRight size={14} /></button>)}</div>}
-            <button className="popover-footer" onClick={() => { setNotificationsOpen(false); navigate('/calendar') }}>Mở Lịch <ChevronRight size={14} /></button>
+            {upcoming.length === 0 ? <div className="popover-empty"><Bell size={22} /><p>Chưa có sự kiện sắp tới.</p></div> : <div className="upcoming-list">{upcoming.map((item) => <button key={item.id} onClick={() => { setNotificationsOpen(false); focusEvent(item.rawEventId, item.start); navigate('/calendar') }}><span className="event-dot" style={{ backgroundColor: item.color }} /><span><strong>{item.title}</strong><small>{item.start.toLocaleString('vi-VN', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: profile?.timezone })}</small></span><ChevronRight size={14} /></button>)}</div>}
+            <button className="popover-footer" onClick={() => {
+              setNotificationsOpen(false)
+              if (upcoming.length > 0) {
+                focusEvent(upcoming[0].rawEventId, upcoming[0].start)
+              }
+              navigate('/calendar')
+            }}>Mở Lịch <ChevronRight size={14} /></button>
           </section>}
         </div>
         <button className="icon-button" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'} title={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>

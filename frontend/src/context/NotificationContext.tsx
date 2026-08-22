@@ -34,7 +34,7 @@ const NotificationContext = createContext<NotificationContextType>({
 })
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { events } = useCalendar()
+  const { events, focusEvent } = useCalendar()
   const { profile } = useProfile()
   const navigate = useSmoothNavigate()
   const [alerts, setAlerts] = useState<ReminderAlert[]>([])
@@ -105,20 +105,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const testNotification = useCallback(() => {
+    const targetEvent = events[0]
     const fakeStart = new Date(Date.now() + 10 * 60 * 1000)
     const testAlert: ReminderAlert = {
       id: `test-${Date.now()}`,
-      eventId: 'test',
-      title: 'Dạy Toán Tiếng Anh (Test thông báo)',
-      category: 'Học tập',
-      color: '#d93662',
+      eventId: targetEvent?.id || 'test',
+      title: targetEvent?.title || 'Dạy Toán Tiếng Anh (Test thông báo)',
+      category: targetEvent?.category || 'Học tập',
+      color: targetEvent?.color || '#d93662',
       startTime: fakeStart,
       minutesUntil: 10,
-      isAiGenerated: true,
+      isAiGenerated: targetEvent?.is_ai_generated ?? true,
       description: 'Lịch kiểm tra tính năng pop-up góc phải',
     }
     showPopup(testAlert)
-  }, [showPopup])
+  }, [events, showPopup])
 
   // Periodic Reminder Checker (runs every 30 seconds while tab is open)
   useEffect(() => {
@@ -229,6 +230,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 className="reminder-view-btn"
                 onClick={() => {
                   dismissAlert(alert.id)
+                  focusEvent(alert.eventId, alert.startTime)
                   navigate('/calendar')
                 }}
               >
