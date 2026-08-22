@@ -5,6 +5,7 @@ import { ChatView } from './components/chat/ChatView'
 import { Navbar } from './components/Navbar'
 import { useAuth } from './context/AuthContext'
 import { CalendarProvider } from './context/CalendarContext'
+import { NotificationProvider } from './context/NotificationContext'
 import { ProfileProvider } from './context/ProfileContext'
 import { useSmoothNavigate } from './hooks/useSmoothNavigate'
 
@@ -29,47 +30,49 @@ function AuthenticatedApp() {
   return (
     <CalendarProvider>
       <ProfileProvider>
-        <div className="app-shell">
-          <Navbar />
-          <div
-            className="app-view-content"
-            style={{
-              position: 'relative',
-              height: 'calc(100vh - 72px)',
-              width: '100%',
-              overflow: 'hidden',
-            }}
-          >
+        <NotificationProvider>
+          <div className="app-shell">
+            <Navbar />
             <div
+              className="app-view-content"
               style={{
-                position: 'absolute',
-                inset: 0,
+                position: 'relative',
+                height: 'calc(100vh - 72px)',
                 width: '100%',
-                height: '100%',
-                visibility: isCalendar ? 'hidden' : 'visible',
-                pointerEvents: isCalendar ? 'none' : 'auto',
-                zIndex: isCalendar ? 0 : 1,
+                overflow: 'hidden',
               }}
             >
-              <ChatView onViewCalendar={() => navigate('/calendar')} />
-            </div>
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                visibility: isCalendar ? 'visible' : 'hidden',
-                pointerEvents: isCalendar ? 'auto' : 'none',
-                zIndex: isCalendar ? 1 : 0,
-              }}
-            >
-              <Suspense fallback={<LoadingScreen />}>
-                <CalendarView />
-              </Suspense>
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  visibility: isCalendar ? 'hidden' : 'visible',
+                  pointerEvents: isCalendar ? 'none' : 'auto',
+                  zIndex: isCalendar ? 0 : 1,
+                }}
+              >
+                <ChatView onViewCalendar={() => navigate('/calendar')} />
+              </div>
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  visibility: isCalendar ? 'visible' : 'hidden',
+                  pointerEvents: isCalendar ? 'auto' : 'none',
+                  zIndex: isCalendar ? 1 : 0,
+                }}
+              >
+                <Suspense fallback={<LoadingScreen />}>
+                  <CalendarView />
+                </Suspense>
+              </div>
             </div>
           </div>
-        </div>
+        </NotificationProvider>
       </ProfileProvider>
     </CalendarProvider>
   )

@@ -1,8 +1,9 @@
-import { Bell, Bot, CalendarDays, ChevronRight, LogOut, Moon, Settings, Sun } from 'lucide-react'
+import { Bell, Bot, CalendarDays, ChevronRight, LogOut, Moon, Settings, Sparkles, Sun } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCalendar } from '../context/CalendarContext'
+import { useNotification } from '../context/NotificationContext'
 import { useProfile } from '../context/ProfileContext'
 import { useTheme } from '../context/ThemeContext'
 import { useToast } from '../context/ToastContext'
@@ -18,6 +19,7 @@ export function Navbar() {
   const { events } = useCalendar()
   const { profile } = useProfile()
   const { theme, toggleTheme } = useTheme()
+  const { testNotification, permission, requestBrowserPermission } = useNotification()
   const notify = useToast()
   const location = useLocation()
   const navigate = useSmoothNavigate()
@@ -95,7 +97,31 @@ export function Navbar() {
       <div className="account-menu">
         <div ref={notificationsRef} className="popover-anchor">
           <button className="icon-button badge-button" aria-label={`${upcoming.length} sự kiện trong 24 giờ tới`} aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setAccountOpen(false) }} title="Sự kiện sắp tới"><Bell size={17} />{upcoming.length > 0 && <span>{upcoming.length > 9 ? '9+' : upcoming.length}</span>}</button>
-          {notificationsOpen && <section className="header-popover notifications-popover" aria-label="Sự kiện sắp tới"><header><div><strong>Sắp tới</strong><small>Trong 24 giờ tới</small></div><span>{upcoming.length}</span></header>{upcoming.length === 0 ? <div className="popover-empty"><Bell size={22} /><p>Chưa có sự kiện sắp tới.</p></div> : <div className="upcoming-list">{upcoming.map((item) => <button key={item.id} onClick={() => { setNotificationsOpen(false); navigate('/calendar') }}><span className="event-dot" style={{ backgroundColor: item.color }} /><span><strong>{item.title}</strong><small>{item.start.toLocaleString('vi-VN', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: profile?.timezone })}</small></span><ChevronRight size={14} /></button>)}</div>}<button className="popover-footer" onClick={() => { setNotificationsOpen(false); navigate('/calendar') }}>Mở Lịch <ChevronRight size={14} /></button></section>}
+          {notificationsOpen && <section className="header-popover notifications-popover" aria-label="Sự kiện sắp tới">
+            <header>
+              <div><strong>Sắp tới</strong><small>Trong 24 giờ tới</small></div>
+              <span>{upcoming.length}</span>
+            </header>
+            <div className="popover-notif-action">
+              <span>🔔 Pop-up góc phải:</span>
+              <button onClick={() => { testNotification(); notify('Đã gửi thử pop-up nhắc nhở ở góc dưới bên phải!', 'success') }}>
+                Thử nghiệm
+              </button>
+            </div>
+            {permission !== 'granted' && (
+              <div className="popover-notif-action">
+                <span>Thông báo màn hình:</span>
+                <button onClick={async () => {
+                  const granted = await requestBrowserPermission()
+                  notify(granted ? 'Đã bật thông báo màn hình thành công!' : 'Trình duyệt chưa cấp quyền thông báo.')
+                }}>
+                  Cho phép
+                </button>
+              </div>
+            )}
+            {upcoming.length === 0 ? <div className="popover-empty"><Bell size={22} /><p>Chưa có sự kiện sắp tới.</p></div> : <div className="upcoming-list">{upcoming.map((item) => <button key={item.id} onClick={() => { setNotificationsOpen(false); navigate('/calendar') }}><span className="event-dot" style={{ backgroundColor: item.color }} /><span><strong>{item.title}</strong><small>{item.start.toLocaleString('vi-VN', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: profile?.timezone })}</small></span><ChevronRight size={14} /></button>)}</div>}
+            <button className="popover-footer" onClick={() => { setNotificationsOpen(false); navigate('/calendar') }}>Mở Lịch <ChevronRight size={14} /></button>
+          </section>}
         </div>
         <button className="icon-button" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'} title={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
         <div ref={accountRef} className="popover-anchor">
