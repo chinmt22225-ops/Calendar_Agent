@@ -74,10 +74,9 @@ const vietnameseTranslations = {
   },
 }
 
-function EventContent({ calendarEvent, compact = false, spotlightEventId }: { calendarEvent: PlanoraScheduleXEvent; compact?: boolean; spotlightEventId?: string | null }) {
+function EventContent({ calendarEvent, compact = false }: { calendarEvent: PlanoraScheduleXEvent; compact?: boolean }) {
   const source = calendarEvent.source
   const eventId = source?.id || calendarEvent.sourceId || String(calendarEvent.id).split('__')[0]
-  const isSpotlight = Boolean(spotlightEventId && (eventId === spotlightEventId || calendarEvent.id === spotlightEventId))
   const recurrenceLabel = source?.recurrence_rule === 'daily'
     ? 'Hằng ngày'
     : source?.recurrence_rule === 'weekly'
@@ -87,7 +86,7 @@ function EventContent({ calendarEvent, compact = false, spotlightEventId }: { ca
         : ''
   const style = { '--planora-event-color': source?.color || '#d93662' } as CSSProperties
   return <div
-    className={`sx-planora-event ${compact ? 'compact' : ''} ${isSpotlight ? 'planora-event--spotlight' : ''}`}
+    className={`sx-planora-event ${compact ? 'compact' : ''}`}
     style={style}
     data-event-id={eventId}
     title={source?.description || source?.title}
@@ -97,12 +96,11 @@ function EventContent({ calendarEvent, compact = false, spotlightEventId }: { ca
   </div>
 }
 
-function ScheduleCalendar({ events, selectedDate, timeZone, theme, spotlightEventId, onSelectedDate, onOpenEvent, onCreateAt, onInteraction }: {
+function ScheduleCalendar({ events, selectedDate, timeZone, theme, onSelectedDate, onOpenEvent, onCreateAt, onInteraction }: {
   events: PlanoraScheduleXEvent[]
   selectedDate: string
   timeZone: string
   theme: 'light' | 'dark'
-  spotlightEventId?: string | null
   onSelectedDate: (date: string) => void
   onOpenEvent: (id: string) => void
   onCreateAt: (range: { start: string; end: string; allDay?: boolean }) => void
@@ -182,12 +180,14 @@ function ScheduleCalendar({ events, selectedDate, timeZone, theme, spotlightEven
     return () => clearTimeout(timer)
   }, [])
 
-  return <ScheduleXCalendar calendarApp={calendar} customComponents={{
-    timeGridEvent: (props) => <EventContent {...props} spotlightEventId={spotlightEventId} />,
-    dateGridEvent: (props) => <EventContent {...props} compact spotlightEventId={spotlightEventId} />,
-    monthGridEvent: (props) => <EventContent {...props} compact spotlightEventId={spotlightEventId} />,
-    monthAgendaEvent: (props) => <EventContent {...props} spotlightEventId={spotlightEventId} />,
-  }} />
+  const customComponents = useMemo(() => ({
+    timeGridEvent: (props: any) => <EventContent {...props} />,
+    dateGridEvent: (props: any) => <EventContent {...props} compact />,
+    monthGridEvent: (props: any) => <EventContent {...props} compact />,
+    monthAgendaEvent: (props: any) => <EventContent {...props} />,
+  }), [])
+
+  return <ScheduleXCalendar calendarApp={calendar} customComponents={customComponents} />
 }
 
 export function CalendarView() {
@@ -207,7 +207,6 @@ export function CalendarView() {
   const [interactionLoading, setInteractionLoading] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-  const [spotlightEventId, setSpotlightEventId] = useState<string | null>(null)
 
   useEffect(() => { setVisible((current) => new Set([...current, ...categories])) }, [categories])
   useEffect(() => {
@@ -215,36 +214,43 @@ export function CalendarView() {
     setSelectedDate(today)
   }, [timeZone])
 
-  // Handle Focus & Spotlight navigation when triggered from Notification
+  // Handle Focus & Spotlight navigation directly in DOM to eliminate any re-render/reload flash
   useEffect(() => {
     if (!focusTarget) return
-    if (focusTarget.date) {
-      setSelectedDate(focusTarget.date)
+    const { eventId, date } = focusTarget
+    if (date) {
+      setSelectedDate(date)
     }
-    const targetEvent = events.find((e) => e.id === focusTarget.eventId)
+    const targetEvent = events.find((e) => e.id === eventId)
     if (targetEvent) {
       setVisible((current) => new Set([...current, targetEvent.category]))
     }
-    setSpotlightEventId(focusTarget.eventId)
 
-    // Smooth scroll into view once rendered
+    let removeTimer: number | undefined
     const scrollTimer = window.setTimeout(() => {
-      const el = document.querySelector(`[data-event-id="${focusTarget.eventId}"]`) ||
-                 document.querySelector('.planora-event--spotlight')
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
-      }
-    }, 220)
+      // Remove any existing spotlight classes
+      document.querySelectorAll('.planora-event--spotlight').forEach((el) => {
+        el.classList.remove('planora-event--spotlight')
+      })
 
-    // Clear spotlight after 2.8s
-    const clearTimer = window.setTimeout(() => {
-      setSpotlightEventId(null)
-      clearFocus()
-    }, 2800)
+      const targetEls = document.querySelectorAll(`[data-event-id="${eventId}"]`)
+      if (targetEls.length > 0) {
+        targetEls.forEach((el) => el.classList.add('planora-event--spotlight'))
+        targetEls[0].scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+      }
+
+      // Remove spotlight class after animation without triggering React state reload
+      removeTimer = window.setTimeout(() => {
+        document.querySelectorAll(`[data-event-id="${eventId}"]`).forEach((el) => {
+          el.classList.remove('planora-event--spotlight')
+        })
+        clearFocus()
+      }, 3000)
+    }, 150)
 
     return () => {
       window.clearTimeout(scrollTimer)
-      window.clearTimeout(clearTimer)
+      if (removeTimer) window.clearTimeout(removeTimer)
     }
   }, [clearFocus, events, focusTarget])
 
@@ -295,7 +301,7 @@ export function CalendarView() {
         {!profileLoading && !profileError && !loading && error && <div className="calendar-state"><RefreshCw size={26} /><h2>Không thể tải lịch</h2><p>{error}</p><button className="primary-button" onClick={() => void refresh()}><RefreshCw size={15} /> Thử lại</button></div>}
         {!profileLoading && !profileError && !loading && !error && events.length === 0 && <div className="calendar-state empty"><CalendarPlus size={28} /><h2>Chưa có sự kiện</h2><p>Tạo sự kiện đầu tiên hoặc nhờ Trợ lý AI sắp xếp lịch học.</p><button className="primary-button" onClick={() => openCreate()}><CalendarPlus size={15} /> Tạo sự kiện</button></div>}
         {!profileLoading && !profileError && !error && <ScheduleCalendar key={timeZone} events={displayEvents} selectedDate={selectedDate} timeZone={timeZone}
-          theme={theme} spotlightEventId={spotlightEventId}
+          theme={theme}
           onSelectedDate={setSelectedDate} onOpenEvent={openEvent} onCreateAt={openCreate} onInteraction={updateFromInteraction} />}
       </div>
     </section>
