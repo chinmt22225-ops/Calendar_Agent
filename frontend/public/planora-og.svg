@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" fill="none">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141018" />
+      <stop offset="50%" stop-color="#1c1420" />
+      <stop offset="100%" stop-color="#2a1422" />
+    </linearGradient>
+    <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff6088" />
+      <stop offset="100%" stop-color="#d93662" />
+    </linearGradient>
+    <linearGradient id="text-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#ffb3c7" />
+    </linearGradient>
+  </defs>
+
+  <!-- Dark Background with subtle ambient glow -->
+  <rect width="1200" height="630" fill="url(#bg-grad)" />
+  <circle cx="200" cy="180" r="300" fill="#d93662" fill-opacity="0.12" filter="blur(80px)" />
+  <circle cx="1000" cy="450" r="280" fill="#7c3aed" fill-opacity="0.1" filter="blur(80px)" />
+
+  <!-- Logo App Icon -->
+  <g transform="translate(100, 100)">
+    <rect width="96" height="96" rx="24" fill="url(#logo-grad)" />
+    <!-- Calendar Inside Icon -->
+    <rect x="22" y="30" width="52" height="44" rx="8" fill="#ffffff" />
+    <path d="M22 38C22 33.5784 25.5784 30 30 30H66C70.4216 30 74 33.5784 74 38V44H22V38Z" fill="#ff7597" />
+    <rect x="34" y="24" width="6" height="12" rx="3" fill="#ffffff" />
+    <rect x="56" y="24" width="6" height="12" rx="3" fill="#ffffff" />
+    <!-- Calendar Dots -->
+    <rect x="32" y="52" width="7" height="7" rx="2" fill="#d93662" />
+    <rect x="45" y="52" width="7" height="7" rx="2" fill="#d93662" />
+    <rect x="58" y="52" width="7" height="7" rx="2" fill="#d93662" />
+    <rect x="32" y="63" width="7" height="7" rx="2" fill="#d93662" />
+    <rect x="45" y="63" width="7" height="7" rx="2" fill="#d93662" />
+  </g>
+
+  <!-- Brand Name -->
+  <text x="216" y="165" fill="url(#text-grad)" font-family="system-ui, -apple-system, sans-serif" font-size="52" font-weight="800" letter-spacing="-1.5">Planora</text>
+
+  <!-- Tagline / Title -->
+  <text x="100" y="270" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="800" letter-spacing="-2">Lịch học thông minh,</text>
+  <text x="100" y="340" fill="url(#logo-grad)" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="800" letter-spacing="-2">nhẹ đầu hơn mỗi ngày.</text>
+
+  <!-- Subtitle / Features -->
+  <text x="100" y="420" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="500">✨ Trợ lý AI tự động lập lịch học, phân bổ thời gian ôn thi</text>
+  <text x="100" y="465" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="500">📅 Giao diện kéo thả Google Calendar mượt mà chuẩn 60fps</text>
+  <text x="100" y="510" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="500">🎯 Quản lý môn học, deadline và phòng chống trùng giờ</text>
+
+  <!-- Domain Badge -->
+  <g transform="translate(100, 550)">
+    <rect width="280" height="42" rx="21" fill="#ffffff" fill-opacity="0.08" stroke="#ffffff" stroke-opacity="0.15" />
+    <text x="140" y="27" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" text-anchor="middle">calendar-agent-mauve.vercel.app</text>
+  </g>
+</svg>

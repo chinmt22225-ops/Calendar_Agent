@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="planora-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ea4c78" />
+      <stop offset="100%" stop-color="#b81d4a" />
+    </linearGradient>
+  </defs>
+  <!-- Rounded App Icon Background -->
+  <rect width="48" height="48" rx="12" fill="url(#planora-grad)" />
+  <!-- Calendar Body -->
+  <rect x="10" y="14" width="28" height="24" rx="4" fill="#ffffff" fill-opacity="0.95" />
+  <!-- Calendar Header Stripe -->
+  <path d="M10 18C10 15.7909 11.7909 14 14 14H34C36.2091 14 38 15.7909 38 18V21H10V18Z" fill="#ff7597" />
+  <!-- Calendar Rings / Pins -->
+  <rect x="16" y="11" width="3" height="6" rx="1.5" fill="#ffffff" />
+  <rect x="29" y="11" width="3" height="6" rx="1.5" fill="#ffffff" />
+  <!-- Calendar Grid Dots / Active Sparkle -->
+  <rect x="15" y="25" width="4" height="4" rx="1" fill="#d93662" />
+  <rect x="22" y="25" width="4" height="4" rx="1" fill="#d93662" />
+  <rect x="29" y="25" width="4" height="4" rx="1" fill="#d93662" />
+  <rect x="15" y="31" width="4" height="4" rx="1" fill="#d93662" />
+  <rect x="22" y="31" width="4" height="4" rx="1" fill="#d93662" />
+  <!-- Sparkle star at bottom-right -->
+  <path d="M31 29L32.2 31.8L35 33L32.2 34.2L31 37L29.8 34.2L27 33L29.8 31.8L31 29Z" fill="#fbbf24" />
+</svg>

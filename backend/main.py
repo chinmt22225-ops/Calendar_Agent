@@ -21,9 +21,22 @@ app = FastAPI(
     redoc_url=None if is_production else "/redoc",
     openapi_url=None if is_production else "/openapi.json",
 )
+raw_origins = [o.strip() for o in settings.frontend_url.split(",") if o.strip()]
+origins = list(
+    set(
+        raw_origins
+        + [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:3000",
+        ]
+    )
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url],
+    allow_origins=origins if origins else ["*"],
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
