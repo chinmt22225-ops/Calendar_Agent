@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { LoginView } from './components/auth/LoginView'
 import { ChatView } from './components/chat/ChatView'
 import { Navbar } from './components/Navbar'
@@ -16,13 +16,47 @@ function LoadingScreen() { return <main className="loading-screen"><span classNa
 function AuthenticatedApp() {
   const location = useLocation()
   const navigate = useSmoothNavigate()
-  useEffect(() => { document.title = location.pathname.startsWith('/calendar') ? 'Lịch của tôi · Planora' : 'Trợ lý AI · Planora' }, [location.pathname])
-  useEffect(() => { void loadCalendarView() }, [])
-  return <CalendarProvider><ProfileProvider><div className="app-shell"><Navbar /><div className="app-view-content"><Routes>
-    <Route path="/chat" element={<ChatView onViewCalendar={() => navigate('/calendar')} />} />
-    <Route path="/calendar" element={<Suspense fallback={<LoadingScreen />}><CalendarView /></Suspense>} />
-    <Route path="*" element={<Navigate to="/chat" replace />} />
-  </Routes></div></div></ProfileProvider></CalendarProvider>
+  const isCalendar = location.pathname.startsWith('/calendar')
+
+  useEffect(() => {
+    document.title = isCalendar ? 'Lịch của tôi · Planora' : 'Trợ lý AI · Planora'
+  }, [isCalendar])
+
+  useEffect(() => {
+    void loadCalendarView()
+  }, [])
+
+  return (
+    <CalendarProvider>
+      <ProfileProvider>
+        <div className="app-shell">
+          <Navbar />
+          <div className="app-view-content" style={{ height: 'calc(100vh - 72px)', overflow: 'hidden' }}>
+            <div
+              style={{
+                display: isCalendar ? 'none' : 'block',
+                height: '100%',
+                width: '100%',
+              }}
+            >
+              <ChatView onViewCalendar={() => navigate('/calendar')} />
+            </div>
+            <div
+              style={{
+                display: isCalendar ? 'block' : 'none',
+                height: '100%',
+                width: '100%',
+              }}
+            >
+              <Suspense fallback={<LoadingScreen />}>
+                <CalendarView />
+              </Suspense>
+            </div>
+          </div>
+        </div>
+      </ProfileProvider>
+    </CalendarProvider>
+  )
 }
 
 export default function App() {

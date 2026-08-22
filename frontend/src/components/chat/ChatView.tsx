@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarClock, ClipboardList, Clock3, Image, LoaderCircle, ShieldCheck, Sparkles } from 'lucide-react'
+import { AlertTriangle, CalendarClock, ClipboardList, Clock3, Image, LoaderCircle, Plus, ShieldCheck, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ChatRequestError, deleteConversation, fetchConversation, fetchConversations, renameConversation, streamMessage } from '../../api/chat'
 import { useCalendar } from '../../context/CalendarContext'
@@ -238,7 +238,22 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
       <section className="chat-main">
         <header className="chat-workspace-header">
           <span><h1>{activeConversation?.title || 'Trợ lý học tập Planora'}</h1><small><Sparkles size={12} /> Calendar & Tasks Agent</small></span>
-          <div className="chat-capabilities"><span><Image size={13} /> Đọc ảnh</span><span><ShieldCheck size={13} /> Kiểm tra xung đột</span>{streaming && <em><i /> Đang xử lý</em>}</div>
+          <div className="chat-capabilities">
+            {conversationId && (
+              <button
+                type="button"
+                className="new-chat-quick-btn"
+                onClick={newChat}
+                title="Bắt đầu đoạn chat mới"
+              >
+                <Plus size={14} />
+                <span>Đoạn chat mới</span>
+              </button>
+            )}
+            <span><Image size={13} /> Đọc ảnh</span>
+            <span><ShieldCheck size={13} /> Kiểm tra xung đột</span>
+            {streaming && <em><i /> Đang xử lý</em>}
+          </div>
         </header>
         <div className="chat-scroll">
           {conversationLoading ? <div className="conversation-loading"><LoaderCircle className="spin" size={22} /><p>Đang mở cuộc trò chuyện…</p></div> : messages.length === 0 ? (
