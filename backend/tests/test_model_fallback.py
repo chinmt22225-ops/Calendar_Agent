@@ -21,11 +21,11 @@ def test_models_descending_intelligence():
 
 
 def test_resolve_fallback_chain_auto():
-    """Verify auto chain begins with highest intelligence vision models."""
+    """Verify auto chain begins with high speed vision models."""
     chain = resolve_fallback_chain("auto", has_images=False, has_groq_key=False)
     assert len(chain) >= 3
-    assert chain[0].id == "gemini-3.6-flash"
-    assert chain[0].intelligence_score == 9.9
+    assert chain[0].id == "gemini-3.5-flash-lite"
+    assert chain[0].intelligence_score == 9.8
 
 
 def test_resolve_fallback_chain_with_images():
@@ -82,5 +82,5 @@ def test_cascading_fallback_on_rate_limit():
         result = session.run("Xếp lịch học")
         assert result == "Đã xếp lịch học thành công!"
         assert len(calls) == 2
-        assert calls[0] == "gemini-3.6-flash"
-        assert session.model_used != "gemini-3.6-flash"
+        assert calls[0] == "gemini-3.5-flash-lite"
+        assert session.model_used != "gemini-3.5-flash-lite"

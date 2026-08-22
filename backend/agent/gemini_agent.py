@@ -46,8 +46,8 @@ MAX_TOOL_ROUNDS = 8
 
 class CalendarAgentSession:
     requested_model: str = "auto"
-    model_used: str = "gemini-3.6-flash"
-    model_name: str = "Gemini 3.6 Flash"
+    model_used: str = "gemini-3.5-flash-lite"
+    model_name: str = "Gemini 3.5 Flash Lite"
 
     def __init__(
         self,
@@ -65,10 +65,13 @@ class CalendarAgentSession:
         self.settings = settings
         self.requested_model = requested_model or settings.gemini_model or "auto"
         self.tools = CalendarTools(supabase, user_id, settings.default_timezone)
-        self.client = genai.Client(api_key=settings.gemini_api_key)
+        self.client = genai.Client(
+            api_key=settings.gemini_api_key,
+            http_options=types.HttpOptions(timeout=20000),
+        )
         self.contents = _history_contents(history or [])
-        self.model_used: str = "gemini-3.6-flash"
-        self.model_name: str = "Gemini 3.6 Flash"
+        self.model_used: str = "gemini-3.5-flash-lite"
+        self.model_name: str = "Gemini 3.5 Flash Lite"
 
     @property
     def actions(self) -> list[dict]:
@@ -215,9 +218,12 @@ def generate_conversation_title(message: str) -> str:
     if not settings.gemini_configured:
         return fallback_conversation_title(message)
     try:
-        client = genai.Client(api_key=settings.gemini_api_key)
+        client = genai.Client(
+            api_key=settings.gemini_api_key,
+            http_options=types.HttpOptions(timeout=5000),
+        )
         response = client.models.generate_content(
-            model="gemini-2.5-flash-lite",
+            model="gemini-3.5-flash-lite",
             contents=(
                 "Đặt tiêu đề tiếng Việt 5-7 từ cho yêu cầu lịch sau. "
                 "Chỉ trả về tiêu đề, không dấu ngoặc kép:\n" + message
