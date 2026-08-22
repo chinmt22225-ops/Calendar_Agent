@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as eventsApi from '../api/events'
 import type { CalendarEvent, EventDraft } from '../types/calendar'
 import { useAuth } from './AuthContext'
@@ -24,18 +24,22 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const refreshSequence = useRef(0)
 
   const refresh = useCallback(async () => {
     if (!user) return
+    const sequence = ++refreshSequence.current
     setLoading(true)
     setError(null)
-    try { setEvents(await eventsApi.fetchEvents()) }
+    try {
+      const nextEvents = await eventsApi.fetchEvents()
+      if (sequence === refreshSequence.current) setEvents(nextEvents)
+    }
     catch (reason) {
       const message = reason instanceof Error ? reason.message : 'Không thể tải lịch. Vui lòng thử lại.'
-      setError(message)
-      notify(message)
+      if (sequence === refreshSequence.current) { setError(message); notify(message) }
     } finally {
-      setLoading(false)
+      if (sequence === refreshSequence.current) setLoading(false)
     }
   }, [notify, user])
 

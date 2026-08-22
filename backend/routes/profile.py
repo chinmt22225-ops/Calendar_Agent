@@ -2,6 +2,7 @@ from uuid import UUID
 from datetime import time
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import ValidationError
 from supabase import Client
 
 from db.auth import get_current_user_id
@@ -31,6 +32,9 @@ def update_profile(
     changes = payload.model_dump(exclude_unset=True, mode="json")
     if not changes:
         raise HTTPException(status_code=400, detail="Không có thay đổi nào.")
+    required_fields = {"timezone", "day_start", "day_end", "pomodoro_minutes"}
+    if any(changes.get(field) is None for field in required_fields if field in changes):
+        raise HTTPException(status_code=422, detail="Cài đặt bắt buộc không thể để trống.")
     current_rows = (
         client.table("profiles")
         .select("*")
@@ -44,7 +48,10 @@ def update_profile(
         "day_end": time(22, 0).isoformat(),
     }
     # Validate the effective pair even when callers update only one boundary.
-    ProfileUpdate.model_validate({**current, **changes})
+    try:
+        ProfileUpdate.model_validate({**current, **changes})
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail="Khoảng thời gian học không hợp lệ.") from exc
     rows = client.table("profiles").upsert({"id": str(user_id), **changes}).execute().data
     if not rows:
         raise HTTPException(status_code=503, detail="Không thể lưu hồ sơ lúc này.")

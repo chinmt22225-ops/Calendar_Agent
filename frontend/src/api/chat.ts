@@ -1,5 +1,27 @@
 import type { CalendarAction, ChatImagePayload, ChatMessage, Conversation } from '../types/chat'
 import { api, getAccessToken } from './client'
+import { supabase } from '../lib/supabase'
+
+export class ChatRequestError extends Error {
+  status: number
+  code?: string
+  retryAfter?: number
+  retryable: boolean
+
+  constructor(detail: string, options: { status?: number; code?: string; retryAfter?: string | number } = {}) {
+    const status = options.status ?? 502
+    const parsedRetryAfter = options.retryAfter === undefined ? undefined : Number(options.retryAfter)
+    const retryAfter = Number.isFinite(parsedRetryAfter) && parsedRetryAfter! > 0 ? parsedRetryAfter : undefined
+    const retryable = options.code !== 'gemini_daily_quota' && (status === 429 || status >= 500)
+    const suffix = status === 429 && retryable && retryAfter ? ` Vui lòng thử lại sau ${retryAfter} giây.` : ''
+    super(`${detail}${suffix}`)
+    this.name = 'ChatRequestError'
+    this.status = status
+    this.code = options.code
+    this.retryAfter = retryAfter
+    this.retryable = retryable
+  }
+}
 
 export async function fetchConversations() {
   const { data } = await api.get<Conversation[]>('/chat/conversations')
@@ -33,18 +55,23 @@ export async function streamMessage(
   },
   signal?: AbortSignal,
 ) {
-  const token = await getAccessToken()
-  const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/chat/stream`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ message, conversation_id: conversationId, operation_id: operationId, images }),
-    signal,
+  const requestBody = JSON.stringify({ message, conversation_id: conversationId, operation_id: operationId, images })
+  const request = (token: string) => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/chat/stream`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: requestBody, signal,
   })
+  let response = await request(await getAccessToken())
+  if (response.status === 401) {
+    const refreshed = await supabase.auth.refreshSession()
+    if (refreshed.data.session?.access_token) response = await request(refreshed.data.session.access_token)
+  }
   if (!response.ok || !response.body) {
-    const detail = await response.json().catch(() => ({ detail: 'Không thể kết nối với trợ lý AI.' }))
-    const retryAfter = response.headers.get('Retry-After')
-    const suffix = response.status === 429 && retryAfter ? ` Vui lòng thử lại sau ${retryAfter} giây.` : ''
-    throw new Error(`${detail.detail || 'Không thể kết nối với trợ lý AI.'}${suffix}`)
+    const payload = await response.json().catch(() => ({ detail: 'Không thể kết nối với trợ lý AI.' })) as { detail?: string; code?: string; retry_after?: string | number }
+    throw new ChatRequestError(payload.detail || 'Không thể kết nối với trợ lý AI.', {
+      status: response.status,
+      code: payload.code || response.headers.get('X-Planora-Error-Code') || undefined,
+      retryAfter: payload.retry_after || response.headers.get('Retry-After') || undefined,
+    })
   }
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -60,13 +87,17 @@ export async function streamMessage(
       if (!chunk.startsWith('data: ')) continue
       let payload
       try { payload = JSON.parse(chunk.slice(6)) }
-      catch { throw new Error('Phản hồi từ Trợ lý AI không đúng định dạng.') }
+      catch { throw new ChatRequestError('Phản hồi từ Trợ lý AI không đúng định dạng.') }
       if (payload.type === 'start') handlers.onStart(payload.conversation_id)
       if (payload.type === 'token') handlers.onToken(payload.content)
       if (payload.type === 'actions') handlers.onActions(payload.actions)
       if (payload.type === 'done') { completed = true; handlers.onDone?.() }
-      if (payload.type === 'error') throw new Error(payload.detail || 'Trợ lý AI gặp lỗi.')
+      if (payload.type === 'error') throw new ChatRequestError(payload.detail || 'Trợ lý AI gặp lỗi.', {
+        status: payload.status,
+        code: payload.code,
+        retryAfter: payload.retry_after,
+      })
     }
   }
-  if (!completed) throw new Error('Kết nối đã đóng trước khi Trợ lý AI hoàn tất phản hồi.')
+  if (!completed) throw new ChatRequestError('Kết nối đã đóng trước khi Trợ lý AI hoàn tất phản hồi.')
 }

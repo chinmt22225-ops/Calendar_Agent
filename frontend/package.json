@@ -11,13 +11,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@fullcalendar/core": "^6.1.19",
-    "@fullcalendar/daygrid": "^6.1.19",
-    "@fullcalendar/interaction": "^6.1.19",
-    "@fullcalendar/list": "^6.1.19",
-    "@fullcalendar/react": "^6.1.19",
-    "@fullcalendar/rrule": "^6.1.21",
-    "@fullcalendar/timegrid": "^6.1.19",
+    "@schedule-x/calendar": "3.7.3",
+    "@schedule-x/calendar-controls": "3.7.3",
+    "@schedule-x/drag-and-drop": "3.7.3",
+    "@schedule-x/event-recurrence": "3.7.3",
+    "@schedule-x/react": "4.1.0",
+    "@schedule-x/resize": "3.7.3",
+    "@schedule-x/shared": "4.6.1",
+    "@schedule-x/theme-default": "3.7.3",
     "@supabase/supabase-js": "^2.56.0",
     "@tailwindcss/vite": "^4.1.12",
     "axios": "^1.11.0",
@@ -26,8 +27,8 @@
     "react-dom": "^19.1.1",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.2",
-    "rrule": "^2.8.1",
-    "tailwindcss": "^4.1.12"
+    "tailwindcss": "^4.1.12",
+    "temporal-polyfill": "0.3.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",

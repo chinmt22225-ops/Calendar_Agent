@@ -69,7 +69,7 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 - Màn hình chào tối giản và bốn prompt gợi ý.
 - Sidebar lịch sử hội thoại có thể thu gọn.
 - Tạo cuộc hội thoại mới và mở lại hội thoại cũ.
-- Đổi tên hoặc xóa cuộc hội thoại từ sidebar; tiêu đề mới được Gemini tạo bằng background task sau tin nhắn đầu tiên.
+- Đổi tên hoặc xóa cuộc hội thoại từ sidebar; tiêu đề ban đầu được tạo cục bộ theo ranh giới từ để không tốn thêm một lượt Gemini.
 - Textarea tự tăng chiều cao và gửi bằng phím Enter.
 - Dán ảnh bằng Ctrl+V hoặc chọn JPG/PNG/WebP/GIF từ máy, xem trước và xóa trước khi gửi; ảnh chỉ được chuyển inline tới Gemini và không lưu vào Supabase.
 - Phản hồi Gemini được truyền qua Server-Sent Events; lịch sử được gửi đúng cấu trúc role/content.
@@ -150,7 +150,7 @@ flowchart LR
 |---|---|---|
 | Frontend | React 19, TypeScript, Vite | UI and client-side state |
 | Styling | Tailwind CSS 4 + custom CSS | Layout, responsive UI, visual system |
-| Calendar | FullCalendar | Month/week/day/list views and interactions |
+| Calendar | Schedule-X | Month/week/day/month-agenda views and interactions |
 | HTTP | Axios + Fetch | REST calls and SSE stream consumption |
 | Icons | Lucide React | Interface icons |
 | Markdown | React Markdown | Assistant response rendering |
@@ -282,20 +282,17 @@ sequenceDiagram
 
 ### 7.5. Calendar Flow
 
-FullCalendar được cấu hình với:
+Schedule-X được cấu hình với:
 
-- `dayGridMonth`
-- `timeGridWeek`
-- `timeGridDay`
-- `listWeek`
-- Drag/drop và resize qua interaction plugin.
-- Selectable time cells.
-- `nowIndicator` cho thời gian hiện tại.
-- Khoảng hiển thị mặc định từ 06:00 đến 24:00.
+- Month grid, week, day và month agenda.
+- Drag/drop và resize theo bước 5 phút; sự kiện lặp được dịch chuyển theo toàn bộ chuỗi.
+- Event recurrence ngày/tuần/tháng.
+- Giao diện tiếng Việt và tuần bắt đầu từ thứ Hai.
+- Giờ bắt đầu/kết thúc ngày lấy từ profile, mặc định 07:00–22:00.
 
 ### English Summary
 
-The frontend application shell gates the product behind a valid Supabase session. AuthContext owns OAuth lifecycle, CalendarContext owns shared event state, ChatView consumes SSE events, and FullCalendar provides direct calendar manipulation. After an AI mutation, ChatView refreshes the shared calendar state so both screens remain consistent.
+The frontend application shell gates the product behind a valid Supabase session. AuthContext owns the PKCE OAuth lifecycle, CalendarContext owns shared event state, ChatView consumes SSE events, and Schedule-X provides direct calendar manipulation. After an AI mutation, ChatView refreshes the shared calendar state so both screens remain consistent.
 
 ---
 
@@ -848,3 +845,39 @@ Invoke-RestMethod http://localhost:8000/health
 **Repository:** https://github.com/chinmt22225-ops/Calendar_Agent
 
 **Document purpose:** Give users, contributors, reviewers, and maintainers a complete understanding of what was built, how it works, how to run it, and what remains for future development.
+
+---
+
+## 23. Functional QA & Recurrence Hardening — 2026-08-22
+
+### Tiếng Việt
+
+Vòng hoàn thiện này rà lại Calendar, recurrence, Tasks, Trash, Settings, authentication và AI chat. Các thay đổi chính:
+
+- Recurrence hằng ngày/tuần/tháng được kiểm thử trực tiếp qua Schedule-X.
+- Sự kiện lặp theo tháng vào ngày 29–31 tự chọn ngày kết thúc đủ để có ít nhất một lần lặp thật.
+- Khi đổi thời gian bắt đầu, modal giữ nguyên thời lượng và tự duy trì ngày kết thúc recurrence hợp lệ.
+- Badge sự kiện 24 giờ dùng chung logic recurrence theo timezone hồ sơ và xử lý DST.
+- Modal hỗ trợ Escape, focus trap, khôi phục focus và chặn đóng/bấm lặp khi đang lưu.
+- Session hết hạn được refresh một lần cho API thường và chat stream.
+- Calendar, Profile và Tasks bỏ qua response cũ khi nhiều request chồng nhau.
+- Backend chuẩn hóa text bắt buộc và trả 422 cho update không hợp lệ.
+- Dependency recurrence cũ đã được loại bỏ; Schedule-X là nguồn hiển thị recurrence duy nhất.
+
+Xác minh cuối vòng: backend `45 passed`, frontend `29 passed`, production build thành công, backend `/health` và `/ready` đều hoạt động. Drag/drop recurrence đã được mở khóa; mini-calendar chuyển ngày qua Calendar Controls nên không còn làm mất occurrence ở tuần kế tiếp.
+
+### English
+
+This completion pass re-audited Calendar, recurrence, Tasks, Trash, Settings, authentication, and AI chat. Key changes:
+
+- Daily, weekly, and monthly recurrence is integration-tested through Schedule-X.
+- Month-end events on days 29–31 now choose an end date that includes at least one real recurrence.
+- Changing an event start preserves duration and keeps the recurrence end valid.
+- The 24-hour badge shares the profile-timezone recurrence logic and handles DST.
+- Modals support Escape, focus trapping, focus restoration, and busy-state interaction locks.
+- Expired sessions are refreshed once for regular API calls and chat streaming.
+- Calendar, Profile, and Tasks ignore stale responses from overlapping requests.
+- The backend normalizes required text and returns stable 422 responses for invalid updates.
+- The legacy recurrence dependency was removed; Schedule-X is the only recurrence rendering engine.
+
+End-of-pass verification: backend `45 passed`, frontend `29 passed`, production build succeeded, and backend `/health` plus `/ready` are healthy. Recurring drag/drop is enabled, and mini-calendar navigation now uses Calendar Controls so future occurrences remain visible.

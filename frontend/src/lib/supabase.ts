@@ -9,7 +9,11 @@ export const supabase = createClient(
   url || 'https://configuration-required.supabase.co',
   publishableKey || 'configuration-required',
   {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+    },
   },
 )
-

@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from agent.recurrence import validate_recurrence_horizon
 
@@ -25,6 +25,14 @@ class EventBase(BaseModel):
     all_day_end: date | None = None
     recurrence_rule: RecurrenceRule | None = None
     recurrence_end: date | None = None
+
+    @field_validator("title", "category")
+    @classmethod
+    def clean_required_text(cls, value: str) -> str:
+        clean = value.strip()
+        if not clean:
+            raise ValueError("Trường bắt buộc không thể chỉ chứa khoảng trắng")
+        return clean
 
     @model_validator(mode="after")
     def validate_time_range(self):
@@ -69,6 +77,16 @@ class EventUpdate(BaseModel):
     all_day_end: date | None = None
     recurrence_rule: RecurrenceRule | None = None
     recurrence_end: date | None = None
+
+    @field_validator("title", "category")
+    @classmethod
+    def clean_optional_required_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        clean = value.strip()
+        if not clean:
+            raise ValueError("Trường bắt buộc không thể chỉ chứa khoảng trắng")
+        return clean
 
 
 class EventOut(EventBase):

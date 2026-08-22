@@ -52,6 +52,8 @@ def update_task(
     changes = payload.model_dump(exclude_unset=True, mode="json")
     if not changes:
         raise HTTPException(status_code=400, detail="Không có thay đổi nào.")
+    if any(value is None for value in changes.values()):
+        raise HTTPException(status_code=422, detail="Thông tin công việc không thể để trống.")
     rows = (
         client.table("study_tasks")
         .update(changes)

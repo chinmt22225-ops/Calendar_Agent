@@ -53,12 +53,14 @@ async def attach_request_id(request, call_next):
 async def handle_postgrest_error(request, exc: PostgrestAPIError):
     code = str(getattr(exc, "code", ""))
     message = str(getattr(exc, "message", "") or "")
+    details = str(getattr(exc, "details", "") or "")
+    hint = str(getattr(exc, "hint", "") or "")
     if code in {"23P01", "23503", "23505"}:
         status_code, detail = 409, "Dữ liệu đang xung đột với một bản ghi khác."
         if code == "23P01" and "calendar_conflict:" in message:
             title = message.split("calendar_conflict:", 1)[1].splitlines()[0].strip()
             detail = f"Khung giờ đang trùng với '{title}'."
-    elif code in {"22007", "22P02", "23514"}:
+    elif code in {"22007", "22023", "22P02", "23502", "23514"}:
         status_code, detail = 422, "Dữ liệu không thỏa điều kiện hợp lệ."
     elif code == "P0002":
         status_code, detail = 404, "Không tìm thấy dữ liệu yêu cầu."
@@ -67,9 +69,12 @@ async def handle_postgrest_error(request, exc: PostgrestAPIError):
     else:
         status_code, detail = 503, "Dịch vụ dữ liệu tạm thời không khả dụng."
     logger.warning(
-        "PostgREST request failed request_id=%s code=%s",
+        "PostgREST request failed request_id=%s code=%s message=%r details=%r hint=%r",
         getattr(request.state, "request_id", "unknown"),
         code,
+        message[:300],
+        details[:300],
+        hint[:300],
     )
     return JSONResponse(
         status_code=status_code,

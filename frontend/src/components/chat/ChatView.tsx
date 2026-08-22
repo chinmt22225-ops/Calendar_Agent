@@ -1,6 +1,6 @@
-import { AlertTriangle, CalendarClock, ClipboardList, Clock3, LoaderCircle, Sparkles } from 'lucide-react'
+import { AlertTriangle, CalendarClock, ClipboardList, Clock3, Image, LoaderCircle, ShieldCheck, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { deleteConversation, fetchConversation, fetchConversations, renameConversation, streamMessage } from '../../api/chat'
+import { ChatRequestError, deleteConversation, fetchConversation, fetchConversations, renameConversation, streamMessage } from '../../api/chat'
 import { useCalendar } from '../../context/CalendarContext'
 import { useToast } from '../../context/ToastContext'
 import type { CalendarAction, ChatImageAttachment, ChatMessage, Conversation } from '../../types/chat'
@@ -154,7 +154,19 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
       } else {
         if (!started && !existingConversationId) setConversationId(null)
         const message = reason instanceof Error ? reason.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.'
-        setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, content: item.content ? `${item.content}\n\n${message}` : message, metadata: { ...item.metadata, error: true } } : item))
+        const requestError = reason instanceof ChatRequestError ? reason : null
+        if (requestError && !requestError.retryable) setLastRequest(null)
+        setMessages((current) => current.map((item) => item.id === assistantId ? {
+          ...item,
+          content: item.content ? `${item.content}\n\n${message}` : message,
+          metadata: {
+            ...item.metadata,
+            error: true,
+            error_code: requestError?.code,
+            retryable: requestError?.retryable ?? true,
+            retry_after: requestError?.retryAfter,
+          },
+        } : item))
       }
     } finally {
       if (generation === generationRef.current) {
@@ -166,12 +178,17 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
 
   const send = (content: string, images: ChatImageAttachment[] = []) => void runRequest(content, images, true)
   const retry = () => { if (lastRequest) void runRequest(lastRequest.content, lastRequest.images, false) }
+  const activeConversation = conversations.find((conversation) => conversation.id === conversationId)
 
   return (
     <div className="chat-shell">
       <ChatSidebar open={sidebarOpen} conversations={conversations} activeId={conversationId} loading={conversationsLoading} error={conversationsError}
         onToggle={() => setSidebarOpen((value) => !value)} onNew={newChat} onSelect={(id) => void selectConversation(id)} onRename={openRename} onDelete={setDeleteTarget} onRetry={() => void loadConversations()} />
       <section className="chat-main">
+        <header className="chat-workspace-header">
+          <span><h1>{activeConversation?.title || 'Trợ lý học tập Planora'}</h1><small><Sparkles size={12} /> Calendar & Tasks Agent</small></span>
+          <div className="chat-capabilities"><span><Image size={13} /> Đọc ảnh</span><span><ShieldCheck size={13} /> Kiểm tra xung đột</span>{streaming && <em><i /> Đang xử lý</em>}</div>
+        </header>
         <div className="chat-scroll">
           {conversationLoading ? <div className="conversation-loading"><LoaderCircle className="spin" size={22} /><p>Đang mở cuộc trò chuyện…</p></div> : messages.length === 0 ? (
             <div className="empty-chat">

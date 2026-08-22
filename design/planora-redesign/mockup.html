@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planora · Redesign Preview</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <link rel="stylesheet" href="mockup.css" />
+</head>
+<body>
+  <main class="prototype" aria-label="Planora redesign prototype">
+    <section class="screen active" data-screen="calendar">
+      <header class="app-nav">
+        <button class="brand-lockup" data-go="calendar"><span class="brand-glyph">P</span><span>Planora</span></button>
+        <nav class="primary-nav" aria-label="Điều hướng chính">
+          <button data-go="ai"><span>✦</span> Trợ lý AI</button>
+          <button class="active" data-go="calendar"><span>▦</span> Lịch</button>
+        </nav>
+        <div class="nav-actions">
+          <button class="icon-btn" title="Thông báo">♢<span class="notification-dot">3</span></button>
+          <button class="icon-btn theme-toggle" title="Đổi giao diện">◐</button>
+          <button class="profile-chip" data-open="settings"><span class="avatar">MT</span><span>Minh Trần</span><b>⌄</b></button>
+        </div>
+      </header>
+
+      <div class="calendar-layout">
+        <aside class="calendar-side">
+          <div class="side-heading">
+            <button class="primary-create" data-open="event"><span>＋</span><span>Tạo mới</span></button>
+            <button class="side-collapse" title="Thu gọn sidebar">‹</button>
+          </div>
+
+          <section class="mini-month">
+            <header><strong>Tháng 8, 2026</strong><span><button>‹</button><button>›</button></span></header>
+            <div class="mini-week"><b>T2</b><b>T3</b><b>T4</b><b>T5</b><b>T6</b><b>T7</b><b>CN</b></div>
+            <div class="mini-days">
+              <span class="faded">27</span><span class="faded">28</span><span class="faded">29</span><span class="faded">30</span><span class="faded">31</span><span>1</span><span>2</span>
+              <span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span>
+              <span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span>
+              <span>17</span><span>18</span><span>19</span><span>20</span><span class="today">21</span><span>22</span><span>23</span>
+              <span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span>
+            </div>
+          </section>
+
+          <section class="side-section categories">
+            <header><span><b>Lịch của tôi</b><small>6 danh mục</small></span><button>＋</button></header>
+            <label><input type="checkbox" checked /><i class="dot indigo"></i><span>Học lý thuyết</span><em>12</em></label>
+            <label><input type="checkbox" checked /><i class="dot teal"></i><span>Thực hành / Lab</span><em>4</em></label>
+            <label><input type="checkbox" checked /><i class="dot coral"></i><span>Deadline</span><em>3</em></label>
+            <label><input type="checkbox" checked /><i class="dot purple"></i><span>CLB & hoạt động</span><em>2</em></label>
+          </section>
+
+          <section class="side-section task-peek">
+            <header><span><b>Tasks</b><small>Hôm nay</small></span><button>＋</button></header>
+            <button class="task-row"><i></i><span><b>Nộp bài Tâm lý</b><small>17:00 · Ưu tiên cao</small></span><em class="urgent">2h</em></button>
+            <button class="task-row"><i></i><span><b>Ôn chương 3</b><small>Triết học</small></span><em>50p</em></button>
+            <button class="all-tasks">Xem tất cả 4 công việc <span>→</span></button>
+          </section>
+
+          <button class="trash-link" data-open="trash"><span>♲</span> Thùng rác <em>2</em></button>
+        </aside>
+
+        <section class="calendar-main">
+          <header class="calendar-toolbar">
+            <div class="date-navigation">
+              <button class="today-button">Hôm nay</button><button class="nav-arrow">‹</button><button class="nav-arrow">›</button>
+              <span><h1>18 – 24 tháng 8</h1><small>Tuần 34 · GMT+7</small></span>
+            </div>
+            <div class="toolbar-right">
+              <button class="ai-plan"><span>✦</span> Lập kế hoạch với AI</button>
+              <div class="view-segment"><button>Ngày</button><button class="active">Tuần</button><button>Tháng</button><button>Lịch biểu</button></div>
+              <button class="more-btn">•••</button>
+            </div>
+          </header>
+
+          <div class="calendar-canvas">
+            <div class="week-head">
+              <div class="timezone-label">GMT+7</div>
+              <div><small>THỨ 2</small><strong>18</strong></div><div><small>THỨ 3</small><strong>19</strong></div>
+              <div><small>THỨ 4</small><strong>20</strong></div><div><small>THỨ 5</small><strong>21</strong></div>
+              <div><small>THỨ 6</small><strong class="selected-day">22</strong></div><div><small>THỨ 7</small><strong>23</strong></div>
+              <div><small>CHỦ NHẬT</small><strong>24</strong></div>
+            </div>
+            <div class="all-day-row">
+              <span>Cả ngày</span><i></i><i></i><i></i><i></i><i><b class="all-day-event">Nộp đề cương</b></i><i></i><i></i>
+            </div>
+            <div class="week-body">
+              <div class="time-labels"><span>07:00</span><span>08:00</span><span>09:00</span><span>10:00</span><span>11:00</span><span>12:00</span><span>13:00</span><span>14:00</span><span>15:00</span><span>16:00</span><span>17:00</span><span>18:00</span><span>19:00</span><span>20:00</span><span>21:00</span></div>
+              <div class="day-lines"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <button class="week-event indigo-event" style="--day:0;--start:1;--dur:2" data-open="event"><small>08:00 – 10:00</small><strong>Triết học Mác–Lênin</strong><span>Phòng F103</span></button>
+              <button class="week-event teal-event" style="--day:2;--start:2.5;--dur:2.5" data-open="event"><small>09:30 – 12:00</small><strong>Thực hành AI</strong><span>Lab 2 · Nhóm 04</span></button>
+              <button class="week-event berry-event ai-generated" style="--day:3;--start:6;--dur:2" data-open="event"><small>13:00 – 15:00</small><strong><em>✦</em> Ôn Tâm lý đại cương</strong><span>Planora đề xuất</span></button>
+              <button class="week-event coral-event" style="--day:4;--start:4;--dur:1.5" data-open="event"><small>11:00 – 12:30</small><strong>Họp bài tập nhóm</strong><span>Thư viện B</span></button>
+              <button class="week-event purple-event" style="--day:4;--start:10;--dur:2" data-open="event"><small>17:00 – 19:00</small><strong>CLB Truyền thông</strong><span>Hội trường A</span></button>
+              <button class="week-event green-event" style="--day:6;--start:11.5;--dur:1.5" data-open="event"><small>18:30 – 20:00</small><strong>Chạy bộ & nghỉ ngơi</strong><span>Công viên</span></button>
+              <div class="now-line" style="--now:7.38"><b>14:23</b><i></i></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="ai">
+      <header class="app-nav">
+        <button class="brand-lockup" data-go="calendar"><span class="brand-glyph">P</span><span>Planora</span></button>
+        <nav class="primary-nav"><button class="active" data-go="ai"><span>✦</span> Trợ lý AI</button><button data-go="calendar"><span>▦</span> Lịch</button></nav>
+        <div class="nav-actions"><button class="icon-btn theme-toggle">◐</button><button class="profile-chip" data-open="settings"><span class="avatar">MT</span><span>Minh Trần</span><b>⌄</b></button></div>
+      </header>
+      <div class="ai-layout">
+        <aside class="chat-history">
+          <button class="new-thread">＋ <span>Cuộc trò chuyện mới</span></button>
+          <div class="history-group"><small>HÔM NAY</small><button class="active"><span>▧</span><b>Xếp thời khóa biểu mới</b><em>•••</em></button><button><span>◇</span><b>Lịch ôn thi cuối kỳ</b><em>•••</em></button></div>
+          <div class="history-group"><small>7 NGÀY TRƯỚC</small><button><span>▧</span><b>Deadline môn Toán</b><em>•••</em></button><button><span>◇</span><b>Tìm giờ học nhóm</b><em>•••</em></button></div>
+          <div class="history-footer"><span class="avatar">MT</span><span><b>Minh Trần</b><small>Gói cá nhân</small></span><button data-open="settings">⚙</button></div>
+        </aside>
+        <section class="chat-workspace">
+          <header class="chat-title"><span><h1>Xếp thời khóa biểu mới</h1><small>Planora AI · Calendar & Tasks</small></span><button>Chia sẻ</button><button>•••</button></header>
+          <div class="chat-content">
+            <article class="user-message"><div class="pasted-image"><span>TKB</span><small>schedule.png</small></div><p>Hãy đọc ảnh và tạo lại thời khóa biểu này. Gộp vào lịch tuần 18–24/08, chưa tạo lặp lại.</p></article>
+            <article class="assistant-message">
+              <span class="assistant-mark">✦</span>
+              <div class="assistant-body">
+                <p>Mình đã đọc được thời khóa biểu và đang đối chiếu với lịch hiện tại của bạn.</p>
+                <section class="agent-progress">
+                  <header><span><b>Đang chuẩn bị lịch xem trước</b><small>Không có dữ liệu nào được ghi trước khi bạn xác nhận</small></span><em>2/3</em></header>
+                  <div class="progress-track"><i></i></div>
+                  <ul><li class="done"><b>✓</b><span>Đọc ảnh thời khóa biểu</span><small>Hoàn tất</small></li><li class="done"><b>✓</b><span>Trích xuất 6 môn học</span><small>Hoàn tất</small></li><li class="working"><b>✦</b><span>Kiểm tra xung đột với Calendar</span><small>Đang xử lý</small></li></ul>
+                </section>
+                <section class="proposal-card">
+                  <header><span class="proposal-icon">▦</span><span><b>Lịch xem trước · 6 sự kiện</b><small>18–24 tháng 8 · GMT+7</small></span><em>CHƯA ÁP DỤNG</em></header>
+                  <div class="proposal-events"><span class="indigo"></span><span class="teal"></span><span class="berry"></span><span class="coral"></span><span class="purple"></span><span class="green"></span></div>
+                  <p>Không phát hiện sự kiện trùng giờ. Có 2 tên phòng học cần bạn kiểm tra lại.</p>
+                  <footer><button class="secondary">Chỉnh sửa nhanh</button><button class="primary">Áp dụng tất cả</button></footer>
+                </section>
+              </div>
+            </article>
+          </div>
+          <footer class="composer-area"><div class="composer"><button>＋</button><textarea rows="1" placeholder="Nhắn Planora hoặc dán ảnh thời khóa biểu..."></textarea><button class="composer-tool">▦</button><button class="send">↑</button></div><small>Planora có thể mắc lỗi. Hãy kiểm tra ngày, giờ và recurrence trước khi áp dụng.</small></footer>
+        </section>
+      </div>
+    </section>
+
+    <section class="screen login-screen" data-screen="login">
+      <div class="login-brand"><span class="brand-glyph">P</span><b>Planora</b></div>
+      <div class="login-copy-panel">
+        <span class="login-kicker">✦ AI CALENDAR CHO SINH VIÊN</span>
+        <h1>Lịch học thông minh,<br /><em>nhẹ đầu hơn mỗi ngày.</em></h1>
+        <p>Planora hiểu thời khóa biểu, deadline và thời gian rảnh để biến mục tiêu học tập thành một kế hoạch thực tế.</p>
+        <ul><li><b>✓</b> Đọc thời khóa biểu trực tiếp từ ảnh</li><li><b>✓</b> Tự động tránh trùng lịch và deadline</li><li><b>✓</b> Điều chỉnh kế hoạch bằng một câu chat</li></ul>
+        <button class="google-login"><span>G</span> Tiếp tục với Google</button>
+        <small>Khi tiếp tục, bạn đồng ý cho Planora quản lý dữ liệu lịch học trong tài khoản.</small>
+      </div>
+      <div class="login-visual">
+        <div class="visual-glow"></div>
+        <section class="visual-calendar"><header><span><b>Tuần của bạn</b><small>18–24 tháng 8</small></span><em>76% đã lên kế hoạch</em></header><div class="visual-week"><i></i><i></i><i></i><i></i><i></i><span class="v-event one">Triết học</span><span class="v-event two">Thực hành AI</span><span class="v-event three">Ôn Tâm lý ✦</span><span class="v-event four">CLB</span></div></section>
+        <section class="ai-float"><span>✦</span><div><b>Mình tìm thấy 2 giờ trống</b><small>14:00–16:00 chiều thứ Năm</small></div><button>Thêm vào lịch</button></section>
+        <div class="study-score"><b>12</b><span>giờ tập trung<br />tuần này</span></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-layer" data-modal="event" aria-hidden="true">
+    <button class="modal-scrim" data-close></button>
+    <section class="event-dialog">
+      <header><span class="dialog-icon">▦</span><span><h2>Chỉnh sửa sự kiện</h2><small><i>✦</i> Do Planora AI sắp xếp</small></span><button data-close>×</button></header>
+      <div class="dialog-body"><label><span>Tiêu đề</span><input value="Ôn Tâm lý đại cương" /></label><div class="two-fields"><label><span>Ngày</span><input type="date" value="2026-08-21" /></label><label><span>Cả ngày</span><button class="switch"><i></i></button></label></div><div class="two-fields"><label><span>Bắt đầu</span><input type="time" value="13:00" /></label><label><span>Kết thúc</span><input type="time" value="15:00" /></label></div><div class="two-fields"><label><span>Danh mục</span><select><option>Học lý thuyết</option></select></label><label><span>Lặp lại</span><select><option>Hằng tuần</option></select></label></div><label><span>Mô tả</span><textarea rows="3">Ôn chương 2–3 trước buổi học.</textarea></label><p class="availability-ok">✓ Khung giờ đang trống</p></div>
+      <footer><button class="destructive">Xóa sự kiện</button><span><button class="secondary" data-close>Hủy</button><button class="primary" data-close>Lưu thay đổi</button></span></footer>
+    </section>
+  </div>
+
+  <div class="modal-layer" data-modal="settings" aria-hidden="true">
+    <button class="modal-scrim" data-close></button>
+    <section class="settings-dialog"><aside><header><span class="brand-glyph small">P</span><b>Cài đặt</b></header><button class="active">Giao diện</button><button>Hồ sơ học tập</button><button>Giờ học & Pomodoro</button><button>Tài khoản</button></aside><div class="settings-content"><header><span><h2>Giao diện</h2><p>Cá nhân hóa Planora theo cách bạn học.</p></span><button data-close>×</button></header><h3>Chế độ màu</h3><div class="theme-cards"><button class="active"><i class="light-preview"></i><b>Sáng</b><small>Sáng và nhẹ mắt</small></button><button><i class="dark-preview"></i><b>Tối</b><small>Tập trung ban đêm</small></button><button><i class="system-preview"></i><b>Hệ thống</b><small>Theo thiết bị</small></button></div><h3>Màu nhận diện</h3><div class="brand-colors"><button class="selected"></button><button></button><button></button><button></button></div><footer><button class="secondary" data-close>Hủy</button><button class="primary" data-close>Lưu thay đổi</button></footer></div></section>
+  </div>
+
+  <div class="drawer-layer" data-drawer="trash" aria-hidden="true"><button class="drawer-scrim" data-close></button><aside class="trash-drawer"><header><span><h2>Thùng rác</h2><small>Sự kiện đã xóa trong 30 ngày</small></span><button data-close>×</button></header><div class="trash-list"><article><i class="dot coral"></i><span><b>Họp nhóm cũ</b><small>Đã xóa hôm qua · 14:00–16:00</small></span><button>Khôi phục</button><button class="delete-forever">Xóa</button></article><article><i class="dot purple"></i><span><b>CLB tuần trước</b><small>Đã xóa 4 ngày trước</small></span><button>Khôi phục</button><button class="delete-forever">Xóa</button></article></div><footer>♲ Sự kiện sẽ tự động bị xóa vĩnh viễn sau 30 ngày.</footer></aside></div>
+
+  <nav class="prototype-switcher" aria-label="Chuyển màn hình mockup"><span>Mockup</span><button class="active" data-go="calendar">Calendar</button><button data-go="ai">AI Assistant</button><button data-go="login">Login</button><i></i><button class="theme-toggle">◐ Theme</button></nav>
+  <script src="mockup.js"></script>
+</body>
+</html>

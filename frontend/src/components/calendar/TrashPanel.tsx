@@ -1,7 +1,8 @@
 import { ArchiveRestore, LoaderCircle, RotateCcw, Trash2, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import * as eventsApi from '../../api/events'
 import { Dialog } from '../common/Dialog'
+import { useModalA11y } from '../common/useModalA11y'
 import { useCalendar } from '../../context/CalendarContext'
 import { useProfile } from '../../context/ProfileContext'
 import { useToast } from '../../context/ToastContext'
@@ -13,6 +14,9 @@ export function TrashPanel({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const titleId = useId()
+  const descriptionId = useId()
+  const modalRef = useModalA11y(!deleteTarget, onClose, Boolean(busyId))
   const { refresh } = useCalendar()
   const { profile } = useProfile()
   const notify = useToast()
@@ -31,7 +35,7 @@ export function TrashPanel({ onClose }: { onClose: () => void }) {
     catch (reason) { notify(reason instanceof Error ? reason.message : 'Không thể xóa vĩnh viễn.') }
     finally { setBusyId(null) }
   }
-  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="trash-modal" role="dialog" aria-modal="true" aria-label="Thùng rác"><header><div><span className="modal-icon"><Trash2 size={20} /></span><div><h2>Thùng rác</h2><p>Khôi phục hoặc xóa vĩnh viễn sự kiện</p></div></div><button aria-label="Đóng Thùng rác" title="Đóng" onClick={onClose}><X size={19} /></button></header><div className="trash-list">
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !deleteTarget && !busyId && onClose()}><section ref={modalRef} className="trash-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1}><header><div><span className="modal-icon"><Trash2 size={20} /></span><div><h2 id={titleId}>Thùng rác</h2><p id={descriptionId}>Khôi phục hoặc xóa vĩnh viễn sự kiện</p></div></div><button disabled={Boolean(busyId)} aria-label="Đóng Thùng rác" title="Đóng" onClick={onClose}><X size={19} /></button></header><div className="trash-list">
     {loading && <div className="trash-loading"><LoaderCircle className="spin" size={20} /><p>Đang tải Thùng rác…</p></div>}
     {!loading && error && <div className="trash-error"><Trash2 size={24} /><strong>Không thể tải Thùng rác</strong><small>{error}</small><button onClick={() => void load()}><RotateCcw size={14} /> Thử lại</button></div>}
     {!loading && !error && events.length === 0 && <div className="empty-trash"><ArchiveRestore size={28} /><strong>Thùng rác đang trống</strong><p>Các sự kiện đã xóa sẽ xuất hiện tại đây.</p><button onClick={onClose}>Quay lại Lịch</button></div>}

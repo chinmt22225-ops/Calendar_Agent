@@ -5,7 +5,7 @@ vi.mock('./client', () => ({
   getAccessToken: vi.fn().mockResolvedValue('test-token'),
 }))
 
-import { streamMessage } from './chat'
+import { ChatRequestError, streamMessage } from './chat'
 
 function streamResponse(events: object[]) {
   const encoder = new TextEncoder()
@@ -61,5 +61,27 @@ describe('AI Assistant SSE client', () => {
       onToken: () => undefined,
       onActions: () => undefined,
     })).rejects.toThrow('Gemini trả về phản hồi rỗng.')
+  })
+
+  it('marks the daily Gemini quota as non-retryable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamResponse([
+      { type: 'start', conversation_id: 'conversation-1' },
+      {
+        type: 'error',
+        status: 429,
+        code: 'gemini_daily_quota',
+        detail: 'Đã hết hạn mức Gemini miễn phí trong ngày.',
+      },
+    ])))
+
+    const error = await streamMessage('Đọc ảnh', null, [], crypto.randomUUID(), {
+      onStart: () => undefined,
+      onToken: () => undefined,
+      onActions: () => undefined,
+    }).catch((reason) => reason)
+
+    expect(error).toBeInstanceOf(ChatRequestError)
+    expect(error.retryable).toBe(false)
+    expect(error.code).toBe('gemini_daily_quota')
   })
 })

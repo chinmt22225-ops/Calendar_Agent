@@ -21,7 +21,7 @@ export function MiniCalendar({ selectedDate, onSelect }: { selectedDate: string;
   const today = iso(new Date())
   return (
     <section className="mini-calendar">
-      <header><strong>Tháng {cursor.getMonth() + 1}, {cursor.getFullYear()}</strong><div><button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}><ChevronLeft size={15} /></button><button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}><ChevronRight size={15} /></button></div></header>
+      <header><strong>Tháng {cursor.getMonth() + 1}, {cursor.getFullYear()}</strong><div><button aria-label="Xem tháng trước" title="Tháng trước" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}><ChevronLeft size={15} /></button><button aria-label="Xem tháng sau" title="Tháng sau" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}><ChevronRight size={15} /></button></div></header>
       <div className="mini-weekdays">{weekdays.map((day) => <span key={day}>{day}</span>)}</div>
       <div className="mini-days">{days.map((date) => { const value = iso(date); return <button key={value} className={`${date.getMonth() !== cursor.getMonth() ? 'outside' : ''} ${value === today ? 'today' : ''} ${value === selectedDate ? 'selected' : ''}`} onClick={() => { onSelect(value); setCursor(new Date(date.getFullYear(), date.getMonth(), 1)) }}>{date.getDate()}</button> })}</div>
     </section>

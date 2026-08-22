@@ -97,8 +97,8 @@ export function ChatInput({ initialValue = '', disabled, streaming, onSend, onSt
         {images.length > 0 && <div className="image-preview-list">{images.map((image) => <figure key={image.id}><img src={image.preview} alt={image.name} /><button onClick={() => { URL.revokeObjectURL(image.preview); setImages((items) => items.filter((item) => item.id !== image.id)) }} title="Bỏ ảnh"><X size={13} /></button></figure>)}</div>}
         {images.length > 0 && <span className="image-count">{images.length}/3 ảnh</span>}
         <div className="chat-input">
-          <input ref={fileInput} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={onFileChange} disabled={disabled} />
-          <button className="attach-button" onClick={() => fileInput.current?.click()} title="Chọn ảnh từ máy" disabled={disabled}><ImagePlus size={19} /></button>
+          <input ref={fileInput} className="file-input-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={onFileChange} disabled={disabled} aria-hidden="true" tabIndex={-1} />
+          <button className="attach-button" onClick={() => fileInput.current?.click()} title="Chọn ảnh từ máy" aria-label="Chọn ảnh từ máy" disabled={disabled}><ImagePlus size={19} /></button>
           <textarea ref={textarea} value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={onKeyDown} onPaste={onPaste}
             placeholder="Nhắn hoặc dán ảnh cho trợ lý..." rows={1} disabled={disabled} />
           {streaming ? <button className="send-button stop" onClick={onStop} title="Dừng phản hồi" aria-label="Dừng phản hồi"><Square size={15} fill="currentColor" /></button> : <button className="send-button" onClick={submit} disabled={(!value.trim() && images.length === 0) || disabled || processing} title="Gửi" aria-label="Gửi tin nhắn"><ArrowUp size={19} /></button>}

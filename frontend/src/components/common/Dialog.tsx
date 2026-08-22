@@ -1,5 +1,6 @@
 import { AlertTriangle, X } from 'lucide-react'
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useId, useRef, type ReactNode } from 'react'
+import { useModalA11y } from './useModalA11y'
 
 type DialogProps = {
   open: boolean
@@ -29,21 +30,12 @@ export function Dialog({
   const titleId = useId()
   const descriptionId = useId()
   const cancelRef = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    cancelRef.current?.focus()
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !busy) onClose()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [busy, onClose, open])
+  const dialogRef = useModalA11y(open, onClose, busy)
 
   if (!open) return null
   return (
     <div className="dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
-      <section className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined}>
+      <section ref={dialogRef} className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} tabIndex={-1}>
         <header>
           <span className={destructive ? 'dialog-icon destructive' : 'dialog-icon'}><AlertTriangle size={20} /></span>
           <div>
@@ -54,7 +46,7 @@ export function Dialog({
         </header>
         {children && <div className="dialog-content">{children}</div>}
         <footer>
-          <button ref={cancelRef} className="secondary-button" disabled={busy} onClick={onClose}>{cancelLabel}</button>
+          <button ref={cancelRef} autoFocus className="secondary-button" disabled={busy} onClick={onClose}>{cancelLabel}</button>
           {onConfirm && <button className={destructive ? 'danger-button' : 'primary-button'} disabled={busy} onClick={() => void onConfirm()}>{busy ? 'Đang xử lý…' : confirmLabel}</button>}
         </footer>
       </section>

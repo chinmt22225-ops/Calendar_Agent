@@ -66,3 +66,20 @@ def test_all_day_event_preserves_stored_dates_after_utc_normalization():
     )
     assert event.all_day_start == date(2026, 8, 21)
     assert event.all_day_end == date(2026, 8, 22)
+
+
+def test_event_required_text_is_trimmed_and_cannot_be_blank():
+    event = EventCreate(
+        title="  Ôn tập  ",
+        category="  Học tập  ",
+        start_time="2026-08-21T08:00:00+07:00",
+        end_time="2026-08-21T09:00:00+07:00",
+    )
+    assert event.title == "Ôn tập"
+    assert event.category == "Học tập"
+    with pytest.raises(ValidationError):
+        EventCreate(
+            title="   ",
+            start_time="2026-08-21T08:00:00+07:00",
+            end_time="2026-08-21T09:00:00+07:00",
+        )

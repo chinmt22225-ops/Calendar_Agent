@@ -12,9 +12,9 @@ export default defineConfig({
           'vendor-supabase': ['@supabase/supabase-js'],
           'vendor-markdown': ['react-markdown'],
           'vendor-calendar': [
-            '@fullcalendar/core', '@fullcalendar/daygrid', '@fullcalendar/interaction',
-            '@fullcalendar/list', '@fullcalendar/react', '@fullcalendar/rrule',
-            '@fullcalendar/timegrid', 'rrule',
+            '@schedule-x/calendar', '@schedule-x/drag-and-drop', '@schedule-x/event-recurrence',
+            '@schedule-x/react', '@schedule-x/resize', '@schedule-x/theme-default',
+            'temporal-polyfill',
           ],
         },
       },

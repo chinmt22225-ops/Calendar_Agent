@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class StudyTaskBase(BaseModel):
@@ -12,6 +12,14 @@ class StudyTaskBase(BaseModel):
     deadline: date
     priority: int = Field(default=2, ge=1, le=3)
     status: Literal["pending", "planned", "completed"] = "pending"
+
+    @field_validator("title", "subject")
+    @classmethod
+    def clean_required_text(cls, value: str) -> str:
+        clean = value.strip()
+        if not clean:
+            raise ValueError("Trường bắt buộc không thể chỉ chứa khoảng trắng")
+        return clean
 
 
 class StudyTaskCreate(StudyTaskBase):
@@ -26,10 +34,19 @@ class StudyTaskUpdate(BaseModel):
     priority: int | None = Field(default=None, ge=1, le=3)
     status: Literal["pending", "planned", "completed"] | None = None
 
+    @field_validator("title", "subject")
+    @classmethod
+    def clean_optional_required_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        clean = value.strip()
+        if not clean:
+            raise ValueError("Trường bắt buộc không thể chỉ chứa khoảng trắng")
+        return clean
+
 
 class StudyTaskOut(StudyTaskBase):
     id: UUID
     user_id: UUID
     created_at: datetime
     updated_at: datetime
-

@@ -7,13 +7,11 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
-from starlette.background import BackgroundTask
 from supabase import Client
 
 from agent.gemini_agent import (
     CalendarAgentSession,
     fallback_conversation_title,
-    generate_conversation_title,
     run_calendar_agent,
 )
 from db.auth import get_current_user_id
@@ -23,6 +21,18 @@ from models.chat import CalendarAction, ChatRequest, ChatResponse, ConversationU
 
 
 router = APIRouter(prefix="/chat", tags=["AI chat"])
+
+
+def _ordered_messages(rows: list[dict]) -> list[dict]:
+    role_order = {"system": 0, "user": 1, "assistant": 2}
+    return sorted(
+        rows,
+        key=lambda row: (
+            str(row.get("created_at") or ""),
+            role_order.get(str(row.get("role")), 9),
+            str(row.get("id") or ""),
+        ),
+    )
 
 
 def _load_history(conversation_id: UUID, user_id: UUID, client: Client) -> list[dict]:
@@ -39,7 +49,7 @@ def _load_history(conversation_id: UUID, user_id: UUID, client: Client) -> list[
         raise HTTPException(status_code=404, detail="Không tìm thấy cuộc hội thoại.")
     rows = (
         client.table("chat_messages")
-        .select("role,content,metadata,created_at")
+        .select("id,role,content,metadata,created_at")
         .eq("user_id", str(user_id))
         .eq("conversation_id", str(conversation_id))
         .order("created_at", desc=True)
@@ -47,7 +57,7 @@ def _load_history(conversation_id: UUID, user_id: UUID, client: Client) -> list[
         .execute()
         .data
     )
-    return list(reversed(rows))
+    return _ordered_messages(rows)
 
 
 def _persist_exchange(
@@ -62,7 +72,7 @@ def _persist_exchange(
     client: Client,
     conversation_title: str | None = None,
 ) -> dict:
-    title = conversation_title or generate_conversation_title(user_message)
+    title = conversation_title or fallback_conversation_title(user_message)
     stored = client.rpc(
         "persist_chat_exchange",
         {
@@ -131,33 +141,6 @@ def _fail_operation(
             "p_error_detail": detail,
         },
     ).execute()
-
-
-def _generate_title_in_background(
-    conversation_id: UUID,
-    user_id: UUID,
-    user_message: str,
-    initial_title: str,
-    client: Client,
-) -> None:
-    current = (
-        client.table("conversations")
-        .select("id")
-        .eq("id", str(conversation_id))
-        .eq("user_id", str(user_id))
-        .eq("title", initial_title)
-        .limit(1)
-        .execute()
-        .data
-    )
-    if not current:
-        return
-    generated = generate_conversation_title(user_message)
-    if generated == initial_title:
-        return
-    client.table("conversations").update({"title": generated}).eq(
-        "id", str(conversation_id)
-    ).eq("user_id", str(user_id)).eq("title", initial_title).execute()
 
 
 def _process_chat(payload: ChatRequest, user_id: UUID, client: Client) -> ChatResponse:
@@ -234,7 +217,7 @@ def get_conversation(
         .execute()
         .data
     )
-    return list(reversed(rows))
+    return _ordered_messages(rows)
 
 
 @router.patch("/conversations/{conversation_id}")
@@ -434,7 +417,19 @@ async def stream_chat(
                 await run_in_threadpool(
                     _fail_operation, operation_id, user_id, str(exc.detail), client
                 )
-            yield _sse({"type": "error", "detail": exc.detail, "status": exc.status_code})
+            error_payload = {
+                "type": "error",
+                "detail": exc.detail,
+                "status": exc.status_code,
+            }
+            if exc.headers:
+                error_code = exc.headers.get("X-Planora-Error-Code")
+                retry_after = exc.headers.get("Retry-After")
+                if error_code:
+                    error_payload["code"] = error_code
+                if retry_after:
+                    error_payload["retry_after"] = retry_after
+            yield _sse(error_payload)
         except Exception as exc:
             if session is not None and session.actions:
                 failure_text = "".join(parts).strip() or "Trợ lý gặp lỗi sau khi đã cập nhật lịch."
@@ -457,21 +452,10 @@ async def stream_chat(
                 )
             yield _sse({"type": "error", "detail": "Trợ lý AI gặp lỗi khi xử lý yêu cầu.", "status": 502})
 
-    background = None
-    if is_new:
-        background = BackgroundTask(
-            _generate_title_in_background,
-            conversation_id,
-            user_id,
-            stored_user_message,
-            initial_title,
-            client,
-        )
     return StreamingResponse(
         generate(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-        background=background,
     )
 
 

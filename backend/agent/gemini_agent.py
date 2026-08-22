@@ -4,6 +4,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 from datetime import datetime
+from math import ceil
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -247,19 +248,72 @@ def _empty_response_error(response: types.GenerateContentResponse) -> HTTPExcept
 
 def fallback_conversation_title(message: str) -> str:
     clean = " ".join(message.split())
-    return clean[:52] or "Đoạn chat mới"
+    if len(clean) <= 52:
+        return clean or "Đoạn chat mới"
+    shortened = clean[:53].rsplit(" ", 1)[0].rstrip(".,;:!?-–—")
+    return shortened or clean[:52]
+
+
+def _quota_retry_after(exc: errors.ClientError) -> str | None:
+    details = getattr(exc, "details", None)
+    if not isinstance(details, dict):
+        return None
+    error = details.get("error")
+    if not isinstance(error, dict):
+        return None
+    for item in error.get("details") or []:
+        if isinstance(item, dict) and str(item.get("@type", "")).endswith("RetryInfo"):
+            delay = str(item.get("retryDelay", "")).strip().removesuffix("s")
+            if delay.replace(".", "", 1).isdigit():
+                return str(max(1, ceil(float(delay))))
+    return None
+
+
+def _quota_error(exc: errors.ClientError) -> HTTPException:
+    raw = f"{getattr(exc, 'message', '')} {getattr(exc, 'details', '')}".lower()
+    is_daily = any(marker in raw for marker in (
+        "generaterequestsperdayperprojectpermodel",
+        "free_tier_requests",
+        "per day",
+        "perday",
+    ))
+    if is_daily:
+        return HTTPException(
+            status_code=429,
+            detail=(
+                "Đã hết hạn mức Gemini miễn phí trong ngày cho model hiện tại. "
+                "Hãy thử lại sau khi hạn mức được làm mới hoặc dùng project Gemini có billing."
+            ),
+            headers={"X-Planora-Error-Code": "gemini_daily_quota"},
+        )
+    headers = {"X-Planora-Error-Code": "gemini_rate_limit"}
+    retry_after = _quota_retry_after(exc)
+    if retry_after:
+        headers["Retry-After"] = retry_after
+    return HTTPException(
+        status_code=429,
+        detail="Gemini đang giới hạn tốc độ. Vui lòng chờ một lúc rồi thử lại.",
+        headers=headers,
+    )
 
 
 def _agent_error(exc: Exception) -> HTTPException:
-    logger.exception("Gemini Calendar Agent thất bại", exc_info=exc)
+    if isinstance(exc, HTTPException):
+        return exc
     if isinstance(exc, errors.ClientError):
         code = getattr(exc, "code", None)
         if code == 429:
-            return HTTPException(status_code=429, detail="Gemini đang quá tải hoặc đã hết hạn mức. Vui lòng thử lại sau.")
+            classified = _quota_error(exc)
+            logger.warning(
+                "Gemini request rejected code=429 category=%s",
+                classified.headers.get("X-Planora-Error-Code") if classified.headers else "rate_limit",
+            )
+            return classified
         if code in {400, 403}:
+            logger.warning("Gemini request rejected code=%s", code)
             return HTTPException(status_code=422, detail="Gemini không thể xử lý yêu cầu này. Hãy diễn đạt lại nội dung.")
     if isinstance(exc, (errors.ServerError, httpx.TimeoutException, httpx.NetworkError)):
+        logger.warning("Gemini upstream unavailable type=%s", type(exc).__name__)
         return HTTPException(status_code=503, detail="Tạm thời không kết nối được với Gemini. Vui lòng thử lại.")
-    if isinstance(exc, HTTPException):
-        return exc
+    logger.exception("Gemini Calendar Agent thất bại")
     return HTTPException(status_code=502, detail="Trợ lý AI gặp lỗi khi xử lý yêu cầu.")

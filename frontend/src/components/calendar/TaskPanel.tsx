@@ -1,5 +1,5 @@
 import { AlertTriangle, Check, ChevronDown, ChevronRight, Circle, Clock3, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as tasksApi from '../../api/tasks'
 import { Dialog } from '../common/Dialog'
 import { useProfile } from '../../context/ProfileContext'
@@ -12,7 +12,7 @@ const emptyDraft = (timeZone: string): StudyTaskDraft => ({ title: '', subject: 
 export function TaskPanel() {
   const notify = useToast()
   const { profile } = useProfile()
-  const timeZone = profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+  const timeZone = profile?.timezone || 'Asia/Ho_Chi_Minh'
   const [tasks, setTasks] = useState<StudyTask[]>([])
   const [expanded, setExpanded] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -22,11 +22,14 @@ export function TaskPanel() {
   const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<StudyTask | null>(null)
+  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set())
+  const loadSequence = useRef(0)
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current
     setLoading(true); setLoadError('')
-    try { setTasks(await tasksApi.fetchTasks()) }
-    catch (reason) { setLoadError(reason instanceof Error ? reason.message : 'Không thể tải công việc.') }
-    finally { setLoading(false) }
+    try { const nextTasks = await tasksApi.fetchTasks(); if (sequence === loadSequence.current) setTasks(nextTasks) }
+    catch (reason) { if (sequence === loadSequence.current) setLoadError(reason instanceof Error ? reason.message : 'Không thể tải công việc.') }
+    finally { if (sequence === loadSequence.current) setLoading(false) }
   }, [])
   useEffect(() => {
     const reloadFromAgent = () => void load()
@@ -71,8 +74,11 @@ export function TaskPanel() {
     finally { setBusy(false) }
   }
   const toggle = async (task: StudyTask) => {
+    if (updatingIds.has(task.id)) return
+    setUpdatingIds((ids) => new Set(ids).add(task.id))
     try { const updated = await tasksApi.updateTask(task.id, { status: task.status === 'completed' ? 'pending' : 'completed' }); setTasks((items) => items.map((item) => item.id === task.id ? updated : item)); notify(updated.status === 'completed' ? 'Đã hoàn thành công việc.' : 'Đã mở lại công việc.', 'success') }
     catch (reason) { notify(reason instanceof Error ? reason.message : 'Không thể cập nhật công việc.') }
+    finally { setUpdatingIds((ids) => { const next = new Set(ids); next.delete(task.id); return next }) }
   }
   const remove = async () => {
     if (!deleteTarget) return
@@ -100,9 +106,9 @@ export function TaskPanel() {
         {loading ? <div className="task-skeleton" aria-label="Đang tải công việc"><i /><i /><i /></div> : loadError ? <div className="task-error"><AlertTriangle size={17} /><strong>Không thể tải công việc</strong><small>{loadError}</small><button onClick={() => void load()}><RotateCcw size={13} /> Thử lại</button></div> : ordered.length === 0 ? <div className="task-empty"><Check size={18} /><strong>Chưa có công việc</strong><small>Thêm công việc để theo dõi tiến độ học tập.</small><button onClick={openCreate}><Plus size={13} /> Thêm công việc</button></div> : <div className="task-list">{ordered.map((task) => {
           const overdue = task.status !== 'completed' && task.deadline < today
           return <article key={task.id} className={`${task.status === 'completed' ? 'completed' : ''} ${overdue ? 'overdue' : ''}`}>
-            <button className="task-check" aria-label={task.status === 'completed' ? 'Mở lại công việc' : 'Đánh dấu hoàn thành'} onClick={() => void toggle(task)}>{task.status === 'completed' ? <Check size={13} /> : <Circle size={13} />}</button>
+            <button className="task-check" disabled={updatingIds.has(task.id)} aria-label={task.status === 'completed' ? 'Mở lại công việc' : 'Đánh dấu hoàn thành'} onClick={() => void toggle(task)}>{updatingIds.has(task.id) ? <RotateCcw className="spin" size={13} /> : task.status === 'completed' ? <Check size={13} /> : <Circle size={13} />}</button>
             <div><strong>{task.title}</strong><small><span>{task.subject}</span><span><Clock3 size={10} /> {task.estimated_hours} giờ</span></small><small className="task-deadline">{overdue && <AlertTriangle size={10} />} {overdue ? 'Quá hạn · ' : ''}{new Date(`${task.deadline}T12:00`).toLocaleDateString('vi-VN')} · <em className={`priority priority-${task.priority}`}>{task.priority === 1 ? 'Cao' : task.priority === 2 ? 'Vừa' : 'Thấp'}</em></small></div>
-            <span className="task-actions"><button aria-label="Chỉnh sửa công việc" title="Chỉnh sửa" onClick={() => openEdit(task)}><Pencil size={12} /></button><button aria-label="Xóa công việc" title="Xóa" onClick={() => setDeleteTarget(task)}><Trash2 size={12} /></button></span>
+            <span className="task-actions"><button disabled={updatingIds.has(task.id)} aria-label="Chỉnh sửa công việc" title="Chỉnh sửa" onClick={() => openEdit(task)}><Pencil size={12} /></button><button disabled={updatingIds.has(task.id)} aria-label="Xóa công việc" title="Xóa" onClick={() => setDeleteTarget(task)}><Trash2 size={12} /></button></span>
           </article>
         })}</div>}
       </>}

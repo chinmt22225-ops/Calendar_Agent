@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as profileApi from '../api/profile'
 import type { ProfileUpdate, UserProfile } from '../types/profile'
 import { useAuth } from './AuthContext'
@@ -7,6 +7,8 @@ import { useToast } from './ToastContext'
 type ProfileContextValue = {
   profile: UserProfile | null
   loading: boolean
+  error: string | null
+  refresh: () => Promise<void>
   saveProfile: (changes: ProfileUpdate) => Promise<UserProfile>
 }
 
@@ -16,24 +18,37 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const notify = useToast()
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const loadSequence = useRef(0)
   const load = useCallback(async () => {
-    if (!user) return
+    if (!user) { setProfile(null); setError(null); setLoading(false); return }
+    const sequence = ++loadSequence.current
     setLoading(true)
-    try { setProfile(await profileApi.fetchProfile()) }
-    catch (error) { notify(error instanceof Error ? error.message : 'Không thể tải cài đặt hồ sơ.') }
-    finally { setLoading(false) }
+    setError(null)
+    try {
+      const nextProfile = await profileApi.fetchProfile()
+      if (sequence === loadSequence.current) setProfile(nextProfile)
+    }
+    catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'Không thể tải cài đặt hồ sơ.'
+      if (sequence === loadSequence.current) { setError(message); notify(message) }
+    }
+    finally { if (sequence === loadSequence.current) setLoading(false) }
   }, [notify, user])
   useEffect(() => { void load() }, [load])
   const value = useMemo(() => ({
     profile,
     loading,
+    error,
+    refresh: load,
     saveProfile: async (changes: ProfileUpdate) => {
       const updated = await profileApi.updateProfile(changes)
       setProfile(updated)
+      setError(null)
       return updated
     },
-  }), [loading, profile])
+  }), [error, load, loading, profile])
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>
 }
 

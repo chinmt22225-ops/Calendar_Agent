@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import ValidationError
 from supabase import Client
 
 from db.auth import get_current_user_id
@@ -104,7 +105,13 @@ def update_event(
     if not current_rows:
         raise HTTPException(status_code=404, detail="Không tìm thấy sự kiện.")
     candidate = {**current_rows[0], **changes}
-    normalized = EventCreate.model_validate(candidate).model_dump(mode="json")
+    try:
+        normalized = EventCreate.model_validate(candidate).model_dump(mode="json")
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Dữ liệu sự kiện sau khi cập nhật không hợp lệ.",
+        ) from exc
     updated = _rpc_row(client.rpc("update_calendar_event_atomic", {
         "p_user_id": str(user_id),
         "p_event_id": str(event_id),

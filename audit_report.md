@@ -1,6 +1,6 @@
 # Backend & System Audit Report — Calendar Agent
 
-> Cập nhật ngày: 2026-08-21
+> Cập nhật ngày: 2026-08-22
 >
 > Nền được audit: commit `1051f23`; trạng thái dưới đây phản ánh vòng hoàn thiện hiện tại.
 >
@@ -9,8 +9,8 @@
 
 ## 1. Kết quả kiểm tra hiện tại
 
-- Backend unit/API/contract tests: `37 passed`.
-- Frontend: `9 passed`, TypeScript check và production build thành công.
+- Backend unit/API/contract tests: `45 passed`.
+- Frontend: `29 passed`, TypeScript check và production build thành công.
 - Smoke test Supabase + Gemini thật đã qua:
   - tạo và đăng nhập tài khoản tạm;
   - đọc/cập nhật profile;
@@ -21,7 +21,22 @@
   - tạo, đổi tên, đọc và xóa conversation.
 - Frontend dependency audit offline: không phát hiện vulnerability trong dữ liệu audit hiện có.
 - Python `pip check`: không phát hiện dependency conflict.
-- Main frontend bundle còn khoảng `310 KB`, gzip khoảng `103 KB`; Calendar, Supabase và Markdown được tách chunk.
+- Main frontend bundle khoảng `320 KB`, gzip khoảng `106 KB`; Calendar, Supabase và Markdown được tách chunk.
+
+### Vòng rà soát chức năng ngày 2026-08-22
+
+- Đã đối chiếu migration local/remote: toàn bộ migration tới `202608210003` đã có trên Supabase.
+- Đã đối chiếu recurrence đang lưu thật: số occurrence của backend Python và Supabase trùng khớp.
+- Đã sửa mặc định recurrence hằng tháng cho ngày 29–31 để luôn bao gồm ít nhất một lần lặp thực tế.
+- Đã kiểm thử tích hợp Schedule-X cho recurrence hằng ngày, hằng tuần và hằng tháng.
+- Đã thống nhất badge “Sắp tới” với cùng quy tắc recurrence theo timezone hồ sơ, gồm DST.
+- Đã tự gia hạn session một lần khi API trả 401; chat stream cũng thử lại bằng token mới.
+- Đã chống request cũ ghi đè Calendar/Profile/Tasks và khóa thao tác Task khi request đang chạy.
+- Modal có focus trap, Escape, trả focus, trạng thái bận và mô tả rõ thao tác trên toàn bộ chuỗi lặp.
+- Backend trả 422 ổn định cho cập nhật Event/Profile/Task không hợp lệ thay vì rơi thành 500/503.
+- Đã loại bỏ dependency `rrule` cũ để tránh hai bộ máy recurrence cho kết quả khác nhau.
+- Đã mở khóa drag/drop và resize cho recurrence. Kéo một occurrence sẽ dịch chuyển toàn bộ chuỗi, giữ nguyên thời lượng, số lần lặp và đồng bộ backend theo bước 5 phút.
+- Đã sửa mini-calendar làm remount Schedule-X và mất occurrence khi ngày gốc nằm ở tuần trước; chuyển ngày nay dùng Calendar Controls trên cùng instance.
 
 Live verification đã bổ sung kiểm tra concurrent recurrence, shared rate limit và chuỗi API thật. Kiểm thử trình duyệt đăng nhập đầu-cuối vẫn phụ thuộc môi trường OAuth/hosting đích.
 

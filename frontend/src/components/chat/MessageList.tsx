@@ -19,7 +19,7 @@ export function MessageList({ messages, streaming, onViewCalendar, onRetry }: {
             {message.role === 'assistant'
               ? <div className="markdown"><ReactMarkdown>{message.content || (streaming && index === messages.length - 1 ? 'Đang phản hồi…' : '')}</ReactMarkdown>{streaming && index === messages.length - 1 && <span className="typing-caret" />}</div>
               : <p>{message.content}</p>}
-            {message.metadata?.error && index === messages.length - 1 && <button className="retry-message" onClick={onRetry}><RotateCcw size={14} /> Thử lại</button>}
+            {message.metadata?.error && message.metadata.retryable !== false && index === messages.length - 1 && <button className="retry-message" onClick={onRetry}><RotateCcw size={14} /> Thử lại</button>}
             {message.metadata?.actions?.map((action, actionIndex) => (
               <InlineEventPill key={`${message.id}-${actionIndex}`} action={action} onViewCalendar={onViewCalendar} />
             ))}

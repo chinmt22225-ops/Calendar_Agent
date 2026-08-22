@@ -1,10 +1,11 @@
 import { Clock3, LogOut, Monitor, Moon, Settings, Sun, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useProfile } from '../context/ProfileContext'
 import { useTheme, type ThemePreference } from '../context/ThemeContext'
 import { useToast } from '../context/ToastContext'
 import type { ProfileUpdate } from '../types/profile'
+import { useModalA11y } from './common/useModalA11y'
 
 const timezones = [
   ['Asia/Ho_Chi_Minh', 'Việt Nam (GMT+7)'],
@@ -22,7 +23,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const notify = useToast()
   const [draft, setDraft] = useState<ProfileUpdate>({})
   const [saving, setSaving] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
   const [error, setError] = useState('')
+  const titleId = useId()
+  const descriptionId = useId()
+  const modalRef = useModalA11y(true, onClose, saving || signingOut)
   useEffect(() => {
     if (profile) setDraft({
       display_name: profile.display_name || '', timezone: profile.timezone,
@@ -50,6 +55,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Không thể lưu cài đặt.') }
     finally { setSaving(false) }
   }
+  const logout = async () => {
+    setError(''); setSigningOut(true)
+    try { await signOut() }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Không thể đăng xuất.'); setSigningOut(false) }
+  }
 
   const themes: { value: ThemePreference; label: string; description: string; icon: typeof Sun }[] = [
     { value: 'system', label: 'Theo hệ thống', description: 'Tự đổi theo thiết bị', icon: Monitor },
@@ -58,9 +68,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   ]
 
   return (
-    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="settings-modal">
-        <header><div><span className="modal-icon"><Settings size={20} /></span><div><h2>Cài đặt</h2><p>Cá nhân hóa Planora theo nhịp học của bạn</p></div></div><button aria-label="Đóng cài đặt" title="Đóng" onClick={onClose}><X size={19} /></button></header>
+    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !saving && !signingOut && onClose()}>
+      <section ref={modalRef} className="settings-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1}>
+        <header><div><span className="modal-icon"><Settings size={20} /></span><div><h2 id={titleId}>Cài đặt</h2><p id={descriptionId}>Cá nhân hóa Planora theo nhịp học của bạn</p></div></div><button disabled={saving || signingOut} aria-label="Đóng cài đặt" title="Đóng" onClick={onClose}><X size={19} /></button></header>
         <div className="modal-body">
           <section className="settings-section">
             <div className="settings-section-heading"><h3>Giao diện</h3><p>Lựa chọn được lưu trên thiết bị này.</p></div>
@@ -79,9 +89,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <label className="field"><span>Thời lượng Pomodoro: {draft.pomodoro_minutes || 50} phút</span><input type="range" min="15" max="120" step="5" value={draft.pomodoro_minutes || 50} onChange={(e) => setDraft({ ...draft, pomodoro_minutes: Number(e.target.value) })} /></label>
           </section>
           {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="settings-logout" onClick={() => void signOut()}><LogOut size={16} /> Đăng xuất khỏi tài khoản</button>
+          <button className="settings-logout" disabled={saving || signingOut} onClick={() => void logout()}><LogOut size={16} /> {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất khỏi tài khoản'}</button>
         </div>
-        <footer><span /><div><button className="secondary-button" onClick={onClose}>Hủy</button><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? 'Đang lưu...' : 'Lưu cài đặt'}</button></div></footer>
+        <footer><span /><div><button className="secondary-button" disabled={saving || signingOut} onClick={onClose}>Hủy</button><button className="primary-button" disabled={saving || signingOut} onClick={() => void save()}>{saving ? 'Đang lưu...' : 'Lưu cài đặt'}</button></div></footer>
       </section>
     </div>
   )
