@@ -37,7 +37,7 @@ def _ordered_messages(rows: list[dict]) -> list[dict]:
     )
 
 
-def _load_history(conversation_id: UUID, user_id: UUID, client: Client) -> list[dict]:
+def _load_history(conversation_id: UUID, user_id: UUID, client: Client, allow_missing: bool = False) -> tuple[list[dict], bool]:
     conversation = (
         client.table("conversations")
         .select("id")
@@ -48,6 +48,8 @@ def _load_history(conversation_id: UUID, user_id: UUID, client: Client) -> list[
         .data
     )
     if not conversation:
+        if allow_missing:
+            return [], True
         raise HTTPException(status_code=404, detail="Không tìm thấy cuộc hội thoại.")
     rows = (
         client.table("chat_messages")
@@ -59,7 +61,7 @@ def _load_history(conversation_id: UUID, user_id: UUID, client: Client) -> list[
         .execute()
         .data
     )
-    return _ordered_messages(rows)
+    return _ordered_messages(rows), False
 
 
 def _persist_exchange(
@@ -145,10 +147,15 @@ def _fail_operation(
     ).execute()
 
 
-def _process_chat(payload: ChatRequest, user_id: UUID, client: Client) -> ChatResponse:
     is_new = payload.conversation_id is None
     conversation_id = payload.conversation_id or uuid4()
     operation_id = payload.operation_id or uuid4()
+    history: list[dict] = []
+    if not is_new:
+        history, missing = _load_history(conversation_id, user_id, client, allow_missing=True)
+        if missing:
+            is_new = True
+            conversation_id = uuid4()
     operation = _begin_operation(
         operation_id, conversation_id, _request_fingerprint(payload), user_id, client
     )
@@ -157,7 +164,6 @@ def _process_chat(payload: ChatRequest, user_id: UUID, client: Client) -> ChatRe
             status_code=409,
             detail="Yêu cầu AI này đã được xử lý hoặc đang chạy.",
         )
-    history = [] if is_new else _load_history(conversation_id, user_id, client)
     try:
         text, actions, model_used = run_calendar_agent(
             payload.message, user_id, client, history, payload.images, model=payload.model
@@ -231,7 +237,7 @@ def get_conversation(
     user_id: UUID = Depends(get_current_user_id),
     client: Client = Depends(get_supabase),
 ):
-    _load_history(conversation_id, user_id, client)
+    _load_history(conversation_id, user_id, client, allow_missing=False)
     rows = (
         client.table("chat_messages")
         .select("id,role,content,metadata,created_at")
@@ -300,8 +306,17 @@ async def stream_chat(
     client: Client = Depends(get_supabase),
 ):
     is_new = payload.conversation_id is None
-    operation_id = payload.operation_id or uuid4()
     proposed_conversation_id = payload.conversation_id or uuid4()
+    history: list[dict] = []
+    if not is_new:
+        history, missing = await run_in_threadpool(
+            _load_history, proposed_conversation_id, user_id, client, True
+        )
+        if missing:
+            is_new = True
+            proposed_conversation_id = uuid4()
+
+    operation_id = payload.operation_id or uuid4()
     operation = await run_in_threadpool(
         _begin_operation,
         operation_id,
@@ -333,7 +348,6 @@ async def stream_chat(
             status_code=409,
             detail="Yêu cầu AI này đang chạy hoặc đã thất bại. Hãy tạo operation_id mới để thử lại.",
         )
-    history = [] if is_new else await run_in_threadpool(_load_history, conversation_id, user_id, client)
     stored_user_message = payload.message.strip() or f"[Đã gửi {len(payload.images)} ảnh]"
     initial_title = fallback_conversation_title(stored_user_message)
 

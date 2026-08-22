@@ -87,8 +87,10 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
       }
     } catch (reason) {
       if (loadId === conversationLoadRef.current) {
-        notify(reason instanceof Error ? reason.message : 'Không thể tải cuộc trò chuyện.')
+        localStorage.removeItem('planora_active_conversation_id')
+        setConversationId(null)
         setMessages([])
+        notify(reason instanceof Error ? reason.message : 'Không thể tải cuộc trò chuyện.')
       }
     } finally {
       if (loadId === conversationLoadRef.current) setConversationLoading(false)
@@ -128,6 +130,14 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
           void selectConversation(targetId)
         } else if (!savedId && loaded.length > 0 && !localStorage.getItem('planora_explicit_new_chat')) {
           void selectConversation(loaded[0].id)
+        } else if (savedId && !targetId) {
+          localStorage.removeItem('planora_active_conversation_id')
+          if (loaded.length > 0 && !localStorage.getItem('planora_explicit_new_chat')) {
+            void selectConversation(loaded[0].id)
+          } else {
+            setConversationId(null)
+            setMessages([])
+          }
         }
       } catch (reason) {
         if (mounted) {
@@ -277,6 +287,10 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
         void loadConversations(); void refresh()
       } else {
         if (!started && !existingConversationId) setConversationId(null)
+        if (reason instanceof ChatRequestError && reason.status === 404) {
+          localStorage.removeItem('planora_active_conversation_id')
+          setConversationId(null)
+        }
         const message = reason instanceof Error ? reason.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.'
         const requestError = reason instanceof ChatRequestError ? reason : null
         if (requestError && !requestError.retryable) setLastRequest(null)
