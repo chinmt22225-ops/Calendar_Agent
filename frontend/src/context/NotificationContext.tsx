@@ -33,6 +33,26 @@ const NotificationContext = createContext<NotificationContextType>({
   requestBrowserPermission: async () => false,
 })
 
+// Gentle notification chime (Web Audio API synthesized without external assets)
+function playNotificationChime() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextClass) return
+    const ctx = new AudioContextClass()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime) // D5
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.14) // A5
+    gain.gain.setValueAtTime(0.12, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.38)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.4)
+  } catch {}
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { events, focusEvent } = useCalendar()
   const { profile } = useProfile()
@@ -42,6 +62,33 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   )
   const notifiedKeysRef = useRef<Set<string>>(new Set())
+  const swRegRef = useRef<ServiceWorkerRegistration | null>(null)
+
+  // Register background Service Worker for OS / Desktop notifications (Google Calendar style)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((reg) => {
+          swRegRef.current = reg
+        })
+        .catch(() => {})
+
+      const handleSwMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'PLANORA_NOTIFICATION_CLICK') {
+          if (event.data.eventId) {
+            focusEvent(event.data.eventId, event.data.startTime)
+          }
+          navigate('/calendar')
+        }
+      }
+
+      navigator.serviceWorker.addEventListener('message', handleSwMessage)
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage)
+      }
+    }
+  }, [focusEvent, navigate])
 
   // Load previously notified keys from sessionStorage
   useEffect(() => {
@@ -78,12 +125,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const showPopup = useCallback((alert: ReminderAlert) => {
+    // 1. Play gentle audio chime
+    playNotificationChime()
+
+    // 2. In-app bottom-right pop-up card
     setAlerts((current) => {
       if (current.some((a) => a.id === alert.id)) return current
       return [...current, alert]
     })
 
-    // Also trigger native desktop notification if user is on another tab/app
+    // 3. Native Desktop / OS Notification (shows even if user is on another browser tab or app)
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try {
         const timeStr = alert.startTime.toLocaleTimeString('vi-VN', {
@@ -94,15 +145,35 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           alert.minutesUntil <= 0
             ? 'đang bắt đầu ngay bây giờ'
             : `sẽ bắt đầu sau ${alert.minutesUntil} phút (${timeStr})`
-        
-        new Notification(`⏰ Nhắc nhở: ${alert.title}`, {
+        const title = `⏰ Planora: ${alert.title}`
+        const options: NotificationOptions = {
           body: `Môn/Sự kiện: ${alert.category} - ${minutesText}`,
           icon: '/favicon.svg',
+          badge: '/favicon.svg',
           tag: alert.id,
-        })
+          requireInteraction: true, // Keeps notification visible in OS Action Center
+          data: {
+            eventId: alert.eventId,
+            startTime: alert.startTime.toISOString(),
+            url: '/calendar',
+          },
+        }
+
+        if (swRegRef.current && 'showNotification' in swRegRef.current) {
+          swRegRef.current.showNotification(title, options).catch(() => {
+            new Notification(title, options)
+          })
+        } else {
+          const notif = new Notification(title, options)
+          notif.onclick = () => {
+            window.focus()
+            focusEvent(alert.eventId, alert.startTime)
+            navigate('/calendar')
+          }
+        }
       } catch {}
     }
-  }, [])
+  }, [focusEvent, navigate])
 
   const testNotification = useCallback(() => {
     const targetEvent = events[0]
