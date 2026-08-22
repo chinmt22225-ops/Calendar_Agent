@@ -24,16 +24,28 @@ class ModelDescriptor:
 ORDERED_MODELS: list[ModelDescriptor] = [
     # Tier 1: Top Intelligence (Deep Reasoning & Multimodal Excellence)
     ModelDescriptor(
-        id="gemini-2.5-flash",
-        name="Gemini 2.5 Flash",
+        id="gemini-3.6-flash",
+        name="Gemini 3.6 Flash",
+        provider="google",
+        tier="top",
+        tier_label="Thông minh cao cấp",
+        intelligence_score=9.9,
+        supports_vision=True,
+        supports_tools=True,
+        description="Thế hệ Flash 3.6 mới nhất, tư duy tiếng Việt xuất sắc, đọc ảnh đỉnh cao",
+        badge_color="#d93662",
+    ),
+    ModelDescriptor(
+        id="gemini-3.5-flash",
+        name="Gemini 3.5 Flash",
         provider="google",
         tier="top",
         tier_label="Thông minh cao cấp",
         intelligence_score=9.8,
         supports_vision=True,
         supports_tools=True,
-        description="Hiểu tiếng Việt sâu sắc nhất, đọc ảnh thời khóa biểu xuất sắc",
-        badge_color="#d93662",
+        description="Hiểu tiếng Việt sâu sắc, xử lý lịch học & deadline nhiều bước",
+        badge_color="#e11d48",
     ),
     ModelDescriptor(
         id="llama-3.3-70b-versatile",
@@ -59,44 +71,44 @@ ORDERED_MODELS: list[ModelDescriptor] = [
         description="Suy luận logic chuyên sâu (Chain of Thought)",
         badge_color="#0284c7",
     ),
-    # Tier 2: Balanced & Fast (High-quality Lightweight Reasoning)
     ModelDescriptor(
-        id="gemini-2.5-flash-lite",
-        name="Gemini 2.5 Flash Lite",
+        id="gemini-flash-latest",
+        name="Gemini Flash Latest",
         provider="google",
         tier="balanced",
         tier_label="Cân bằng & Tốc độ",
-        intelligence_score=9.2,
+        intelligence_score=9.5,
         supports_vision=True,
         supports_tools=True,
-        description="Siêu nhẹ thế hệ 2.5, phản hồi cực nhanh, tối ưu token",
+        description="Bản Flash tiêu chuẩn tự động cập nhật, ổn định và nhanh chóng",
+        badge_color="#5656d8",
+    ),
+    # Tier 2: Balanced & Fast (High-quality Lightweight Reasoning)
+    ModelDescriptor(
+        id="gemini-3.5-flash-lite",
+        name="Gemini 3.5 Flash Lite",
+        provider="google",
+        tier="balanced",
+        tier_label="Cân bằng & Tốc độ",
+        intelligence_score=9.3,
+        supports_vision=True,
+        supports_tools=True,
+        description="Siêu nhẹ thế hệ 3.5, phản hồi cực nhanh (~300ms), tiết kiệm token",
         badge_color="#0f8f83",
     ),
     ModelDescriptor(
-        id="gemini-2.0-flash",
-        name="Gemini 2.0 Flash",
-        provider="google",
-        tier="balanced",
-        tier_label="Cân bằng & Tốc độ",
-        intelligence_score=9.0,
-        supports_vision=True,
-        supports_tools=True,
-        description="Bản Flash tiêu chuẩn thế hệ 2.0, xử lý đa bước ổn định",
-        badge_color="#5656d8",
-    ),
-    # Tier 3: Speed & Lightweight (High Quota & Instant Response)
-    ModelDescriptor(
-        id="gemini-2.0-flash-lite",
-        name="Gemini 2.0 Flash Lite",
+        id="gemini-flash-lite-latest",
+        name="Gemini Flash Lite",
         provider="google",
         tier="speed",
         tier_label="Siêu nhẹ & Quota cao",
-        intelligence_score=8.7,
+        intelligence_score=9.0,
         supports_vision=True,
         supports_tools=True,
-        description="Bản Lite 2.0 tiết kiệm, hạn mức request dồi dào",
+        description="Bản Lite mới nhất, hạn mức request dồi dào và tốc độ cao",
         badge_color="#df5a27",
     ),
+    # Tier 3: Speed & High Quota
     ModelDescriptor(
         id="gemma-2-9b-it",
         name="Gemma 2 9B",
@@ -121,22 +133,18 @@ ORDERED_MODELS: list[ModelDescriptor] = [
         description="Tốc độ 800 từ/giây, trả lời tức thì cho câu hỏi nhanh",
         badge_color="#d97706",
     ),
-    # Tier 4: Safety Net Legacy Fallback
-    ModelDescriptor(
-        id="gemini-1.5-flash",
-        name="Gemini 1.5 Flash",
-        provider="google",
-        tier="safety",
-        tier_label="Dự phòng tầng cuối",
-        intelligence_score=8.0,
-        supports_vision=True,
-        supports_tools=True,
-        description="Mô hình thế hệ 1.5 bền bỉ, lưới an toàn chống nghẽn",
-        badge_color="#64748b",
-    ),
 ]
 
 MODEL_MAP: dict[str, ModelDescriptor] = {model.id: model for model in ORDERED_MODELS}
+
+MODEL_ALIASES: dict[str, str] = {
+    "gemini-2.5-flash": "gemini-3.6-flash",
+    "gemini-2.5-flash-lite": "gemini-3.5-flash-lite",
+    "gemini-2.0-flash": "gemini-flash-latest",
+    "gemini-2.0-flash-lite": "gemini-flash-lite-latest",
+    "gemini-1.5-flash": "gemini-flash-latest",
+    "gemini-1.5-flash-8b": "gemini-flash-lite-latest",
+}
 
 
 def get_available_models(has_groq_key: bool = False) -> list[ModelDescriptor]:
@@ -154,20 +162,23 @@ def resolve_fallback_chain(
     """Resolve cascading fallback chain in strict descending order of intelligence."""
     available = get_available_models(has_groq_key=has_groq_key)
 
+    raw_req = requested_model or "auto"
+    target_id = MODEL_ALIASES.get(raw_req, raw_req)
+
     # If user selected a specific model, place it first, followed by descending fallbacks
-    if requested_model and requested_model != "auto":
-        if requested_model in MODEL_MAP:
-            primary = MODEL_MAP[requested_model]
-            remaining = [m for m in available if m.id != requested_model]
+    if target_id and target_id != "auto":
+        if target_id in MODEL_MAP:
+            primary = MODEL_MAP[target_id]
+            remaining = [m for m in available if m.id != target_id]
             if has_images:
                 chain = [m for m in [primary, *remaining] if m.supports_vision]
-                return chain or [MODEL_MAP["gemini-2.5-flash"]]
+                return chain or [ORDERED_MODELS[0]]
             return [primary, *remaining]
         # Custom / test model ID
         return [
             ModelDescriptor(
-                id=requested_model,
-                name=requested_model,
+                id=target_id,
+                name=target_id,
                 provider="google",
                 tier="balanced",
                 tier_label="Tùy chỉnh",
@@ -176,7 +187,8 @@ def resolve_fallback_chain(
                 supports_tools=True,
                 description="Mô hình tùy chỉnh",
                 badge_color="#64748b",
-            )
+            ),
+            *available,
         ]
 
     # Auto Mode:

@@ -24,8 +24,8 @@ def test_resolve_fallback_chain_auto():
     """Verify auto chain begins with highest intelligence vision models."""
     chain = resolve_fallback_chain("auto", has_images=False, has_groq_key=False)
     assert len(chain) >= 3
-    assert chain[0].id == "gemini-2.5-flash"
-    assert chain[0].intelligence_score == 9.8
+    assert chain[0].id == "gemini-3.6-flash"
+    assert chain[0].intelligence_score == 9.9
 
 
 def test_resolve_fallback_chain_with_images():
@@ -37,9 +37,9 @@ def test_resolve_fallback_chain_with_images():
 
 def test_resolve_fallback_chain_specific_selection():
     """Verify selecting a specific model puts it first in the chain."""
-    chain = resolve_fallback_chain("gemini-2.0-flash", has_images=False, has_groq_key=False)
-    assert chain[0].id == "gemini-2.0-flash"
-    assert any(m.id == "gemini-2.5-flash" for m in chain[1:])
+    chain = resolve_fallback_chain("gemini-3.5-flash", has_images=False, has_groq_key=False)
+    assert chain[0].id == "gemini-3.5-flash"
+    assert any(m.id == "gemini-3.6-flash" for m in chain[1:])
 
 
 def test_cascading_fallback_on_rate_limit():
@@ -82,5 +82,5 @@ def test_cascading_fallback_on_rate_limit():
         result = session.run("Xếp lịch học")
         assert result == "Đã xếp lịch học thành công!"
         assert len(calls) == 2
-        assert calls[0] == "gemini-2.5-flash"
-        assert session.model_used != "gemini-2.5-flash"
+        assert calls[0] == "gemini-3.6-flash"
+        assert session.model_used != "gemini-3.6-flash"

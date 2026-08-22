@@ -1,0 +1,12 @@
+MODEL gemini-3.6-flash: SUCCESS!
+Response:
+Lịch hôm nay (23/08/2026) của bạn hiện đang **trống**, không có sự kiện nào bị trùng. 
+
+Bạn có thể chọn một trong các khung giờ 2 tiếng rảnh buổi tối dưới đây để học bài:
+
+* **18:00 - 20:00**
+* **19:00 - 21:00**
+* **20:00 - 22:00**
+
+Nếu bạn muốn tạo lịch học cho một trong các khung giờ trên, hãy cho mình biết khung giờ bạn chọn và tên môn học (nếu có) để mình đặt lịch giúp bạn nhé!
+---

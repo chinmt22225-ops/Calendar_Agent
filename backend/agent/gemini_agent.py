@@ -46,8 +46,8 @@ MAX_TOOL_ROUNDS = 8
 
 class CalendarAgentSession:
     requested_model: str = "auto"
-    model_used: str = "gemini-2.5-flash-lite"
-    model_name: str = "Gemini 2.5 Flash Lite"
+    model_used: str = "gemini-3.6-flash"
+    model_name: str = "Gemini 3.6 Flash"
 
     def __init__(
         self,
@@ -67,8 +67,8 @@ class CalendarAgentSession:
         self.tools = CalendarTools(supabase, user_id, settings.default_timezone)
         self.client = genai.Client(api_key=settings.gemini_api_key)
         self.contents = _history_contents(history or [])
-        self.model_used: str = "gemini-2.5-flash-lite"
-        self.model_name: str = "Gemini 2.5 Flash Lite"
+        self.model_used: str = "gemini-3.6-flash"
+        self.model_name: str = "Gemini 3.6 Flash"
 
     @property
     def actions(self) -> list[dict]:
@@ -323,15 +323,34 @@ def fallback_conversation_title(message: str) -> str:
 
 def _is_rate_limit_or_overloaded(exc: Exception) -> bool:
     if isinstance(exc, HTTPException):
-        return exc.status_code in {429, 503}
-    if isinstance(exc, errors.ClientError) and getattr(exc, "code", None) == 429:
-        return True
+        if "phản hồi rỗng" in str(exc.detail or ""):
+            return False
+        return exc.status_code in {404, 429, 500, 503, 504}
+    if isinstance(exc, errors.ClientError):
+        code = getattr(exc, "code", None)
+        if code in {400, 404, 429}:
+            return True
     if isinstance(exc, (errors.ServerError, httpx.TimeoutException, httpx.NetworkError)):
         return True
     msg = str(exc).lower()
     return any(
         k in msg
-        for k in ["429", "resource_exhausted", "quota", "rate limit", "503", "service unavailable", "overloaded"]
+        for k in [
+            "429",
+            "404",
+            "not_found",
+            "not found",
+            "resource_exhausted",
+            "quota",
+            "rate limit",
+            "503",
+            "500",
+            "service unavailable",
+            "overloaded",
+            "no longer available",
+            "is not found",
+            "deprecated",
+        ]
     )
 
 
