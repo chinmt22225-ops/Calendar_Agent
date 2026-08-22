@@ -30,7 +30,9 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
   const [conversationsLoading, setConversationsLoading] = useState(true)
   const [conversationsError, setConversationsError] = useState('')
   const [conversationLoading, setConversationLoading] = useState(false)
-  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [conversationId, setConversationId] = useState<string | null>(
+    () => localStorage.getItem('planora_active_conversation_id') || null
+  )
   const [selectedModel, setSelectedModel] = useState<string>(
     () => localStorage.getItem('planora_selected_model') || 'auto'
   )
@@ -50,35 +52,104 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
   const conversationLoadRef = useRef(0)
 
   const loadConversations = async () => {
-    setConversationsLoading(true); setConversationsError('')
-    try { setConversations(await fetchConversations()) }
-    catch (reason) { setConversationsError(reason instanceof Error ? reason.message : 'Không thể tải lịch sử trò chuyện.') }
-    finally { setConversationsLoading(false) }
+    setConversationsLoading(true)
+    setConversationsError('')
+    try {
+      const loaded = await fetchConversations()
+      setConversations(loaded)
+      return loaded
+    } catch (reason) {
+      setConversationsError(
+        reason instanceof Error ? reason.message : 'Không thể tải lịch sử trò chuyện.'
+      )
+      return []
+    } finally {
+      setConversationsLoading(false)
+    }
   }
 
-  useEffect(() => { messagesRef.current = messages }, [messages])
-  useEffect(() => { void loadConversations(); return () => { abortRef.current?.abort(); releasePreviews(messagesRef.current) } }, [])
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: streaming ? 'auto' : 'smooth' }) }, [messages, streaming])
-
-  const newChat = () => {
-    generationRef.current += 1
-    conversationLoadRef.current += 1
-    if (streaming) abortRef.current?.abort()
-    abortRef.current = null; setStreaming(false)
-    releasePreviews(messagesRef.current)
-    setConversationId(null); setMessages([]); setLastRequest(null)
-  }
   const selectConversation = async (id: string) => {
+    localStorage.setItem('planora_active_conversation_id', id)
+    localStorage.removeItem('planora_explicit_new_chat')
     generationRef.current += 1
     const loadId = ++conversationLoadRef.current
     if (streaming) abortRef.current?.abort()
-    abortRef.current = null; setStreaming(false)
+    abortRef.current = null
+    setStreaming(false)
     releasePreviews(messagesRef.current)
-    setConversationId(id); setConversationLoading(true)
-    try { const loaded = await fetchConversation(id); if (loadId === conversationLoadRef.current) { setMessages(loaded); setLastRequest(null) } }
-    catch (reason) { if (loadId === conversationLoadRef.current) { notify(reason instanceof Error ? reason.message : 'Không thể tải cuộc trò chuyện.'); setMessages([]) } }
-    finally { if (loadId === conversationLoadRef.current) setConversationLoading(false) }
+    setConversationId(id)
+    setConversationLoading(true)
+    try {
+      const loaded = await fetchConversation(id)
+      if (loadId === conversationLoadRef.current) {
+        setMessages(loaded)
+        setLastRequest(null)
+      }
+    } catch (reason) {
+      if (loadId === conversationLoadRef.current) {
+        notify(reason instanceof Error ? reason.message : 'Không thể tải cuộc trò chuyện.')
+        setMessages([])
+      }
+    } finally {
+      if (loadId === conversationLoadRef.current) setConversationLoading(false)
+    }
   }
+
+  const newChat = () => {
+    localStorage.removeItem('planora_active_conversation_id')
+    localStorage.setItem('planora_explicit_new_chat', 'true')
+    generationRef.current += 1
+    conversationLoadRef.current += 1
+    if (streaming) abortRef.current?.abort()
+    abortRef.current = null
+    setStreaming(false)
+    releasePreviews(messagesRef.current)
+    setConversationId(null)
+    setMessages([])
+    setLastRequest(null)
+  }
+
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  useEffect(() => {
+    let mounted = true
+    const initChat = async () => {
+      setConversationsLoading(true)
+      setConversationsError('')
+      try {
+        const loaded = await fetchConversations()
+        if (!mounted) return
+        setConversations(loaded)
+        const savedId = localStorage.getItem('planora_active_conversation_id')
+        const targetId = savedId && loaded.some((c) => c.id === savedId) ? savedId : null
+        if (targetId) {
+          void selectConversation(targetId)
+        } else if (!savedId && loaded.length > 0 && !localStorage.getItem('planora_explicit_new_chat')) {
+          void selectConversation(loaded[0].id)
+        }
+      } catch (reason) {
+        if (mounted) {
+          setConversationsError(
+            reason instanceof Error ? reason.message : 'Không thể tải lịch sử trò chuyện.'
+          )
+        }
+      } finally {
+        if (mounted) setConversationsLoading(false)
+      }
+    }
+    void initChat()
+    return () => {
+      mounted = false
+      abortRef.current?.abort()
+      releasePreviews(messagesRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: streaming ? 'auto' : 'smooth' })
+  }, [messages, streaming])
   const openRename = (conversation: Conversation) => { setRenameTarget(conversation); setRenameTitle(conversation.title) }
   const saveRename = async () => {
     if (!renameTarget) return
@@ -138,6 +209,8 @@ export function ChatView({ onViewCalendar }: { onViewCalendar: () => void }) {
             if (generation !== generationRef.current) return
             started = true
             setConversationId(id)
+            localStorage.setItem('planora_active_conversation_id', id)
+            localStorage.removeItem('planora_explicit_new_chat')
           },
           onToken: scheduleToken,
           onActions: (actions: CalendarAction[], metadata) => {
