@@ -1,0 +1,25 @@
+steps:
+  # 1. Build and push Backend Image to Google Artifact Registry / Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/planora-backend:$COMMIT_SHA', './backend']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/planora-backend:$COMMIT_SHA']
+
+  # 2. Deploy Backend to Google Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'planora-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/planora-backend:$COMMIT_SHA'
+      - '--region'
+      - 'asia-southeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+
+images:
+  - 'gcr.io/$PROJECT_ID/planora-backend:$COMMIT_SHA'
