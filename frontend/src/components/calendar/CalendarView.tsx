@@ -118,7 +118,7 @@ function ScheduleCalendar({ events, selectedDate, timeZone, dayStart, dayEnd, th
     selectedDate: Temporal.PlainDate.from(selectedDate),
     defaultView: savedView,
     firstDayOfWeek: 1,
-    isResponsive: true,
+    isResponsive: false,
     isDark: theme === 'dark',
     dayBoundaries: { start: dayStart.slice(0, 5), end: dayEnd.slice(0, 5) },
     weekOptions: {

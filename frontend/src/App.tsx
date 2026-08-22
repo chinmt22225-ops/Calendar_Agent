@@ -31,21 +31,37 @@ function AuthenticatedApp() {
       <ProfileProvider>
         <div className="app-shell">
           <Navbar />
-          <div className="app-view-content" style={{ height: 'calc(100vh - 72px)', overflow: 'hidden' }}>
+          <div
+            className="app-view-content"
+            style={{
+              position: 'relative',
+              height: 'calc(100vh - 72px)',
+              width: '100%',
+              overflow: 'hidden',
+            }}
+          >
             <div
               style={{
-                display: isCalendar ? 'none' : 'block',
-                height: '100%',
+                position: 'absolute',
+                inset: 0,
                 width: '100%',
+                height: '100%',
+                visibility: isCalendar ? 'hidden' : 'visible',
+                pointerEvents: isCalendar ? 'none' : 'auto',
+                zIndex: isCalendar ? 0 : 1,
               }}
             >
               <ChatView onViewCalendar={() => navigate('/calendar')} />
             </div>
             <div
               style={{
-                display: isCalendar ? 'block' : 'none',
-                height: '100%',
+                position: 'absolute',
+                inset: 0,
                 width: '100%',
+                height: '100%',
+                visibility: isCalendar ? 'visible' : 'hidden',
+                pointerEvents: isCalendar ? 'auto' : 'none',
+                zIndex: isCalendar ? 1 : 0,
               }}
             >
               <Suspense fallback={<LoadingScreen />}>
