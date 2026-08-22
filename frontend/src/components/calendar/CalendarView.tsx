@@ -97,12 +97,10 @@ function EventContent({ calendarEvent, compact = false, spotlightEventId }: { ca
   </div>
 }
 
-function ScheduleCalendar({ events, selectedDate, timeZone, dayStart, dayEnd, theme, spotlightEventId, onSelectedDate, onOpenEvent, onCreateAt, onInteraction }: {
+function ScheduleCalendar({ events, selectedDate, timeZone, theme, spotlightEventId, onSelectedDate, onOpenEvent, onCreateAt, onInteraction }: {
   events: PlanoraScheduleXEvent[]
   selectedDate: string
   timeZone: string
-  dayStart: string
-  dayEnd: string
   theme: 'light' | 'dark'
   spotlightEventId?: string | null
   onSelectedDate: (date: string) => void
@@ -128,9 +126,8 @@ function ScheduleCalendar({ events, selectedDate, timeZone, dayStart, dayEnd, th
     firstDayOfWeek: 1,
     isResponsive: false,
     isDark: theme === 'dark',
-    dayBoundaries: { start: dayStart.slice(0, 5), end: dayEnd.slice(0, 5) },
     weekOptions: {
-      gridHeight: 1180,
+      gridHeight: 1680,
       nDays: 7,
       eventWidth: 94,
       gridStep: 30,
@@ -173,6 +170,17 @@ function ScheduleCalendar({ events, selectedDate, timeZone, dayStart, dayEnd, th
     const nextDate = Temporal.PlainDate.from(selectedDate)
     if (!calendarControls.getDate().equals(nextDate)) calendarControls.setDate(nextDate)
   }, [calendarControls, selectedDate])
+
+  // Scroll to around 07:00 on initial mount so daytime is in view by default while allowing full 0h-24h scrolling
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const viewContainer = document.querySelector('.sx__view-container')
+      if (viewContainer && viewContainer.scrollTop === 0) {
+        viewContainer.scrollTop = 480
+      }
+    }, 160)
+    return () => clearTimeout(timer)
+  }, [])
 
   return <ScheduleXCalendar calendarApp={calendar} customComponents={{
     timeGridEvent: (props) => <EventContent {...props} spotlightEventId={spotlightEventId} />,
@@ -287,7 +295,7 @@ export function CalendarView() {
         {!profileLoading && !profileError && !loading && error && <div className="calendar-state"><RefreshCw size={26} /><h2>Không thể tải lịch</h2><p>{error}</p><button className="primary-button" onClick={() => void refresh()}><RefreshCw size={15} /> Thử lại</button></div>}
         {!profileLoading && !profileError && !loading && !error && events.length === 0 && <div className="calendar-state empty"><CalendarPlus size={28} /><h2>Chưa có sự kiện</h2><p>Tạo sự kiện đầu tiên hoặc nhờ Trợ lý AI sắp xếp lịch học.</p><button className="primary-button" onClick={() => openCreate()}><CalendarPlus size={15} /> Tạo sự kiện</button></div>}
         {!profileLoading && !profileError && !error && <ScheduleCalendar key={timeZone} events={displayEvents} selectedDate={selectedDate} timeZone={timeZone}
-          dayStart={profile?.day_start || '07:00'} dayEnd={profile?.day_end || '22:00'} theme={theme} spotlightEventId={spotlightEventId}
+          theme={theme} spotlightEventId={spotlightEventId}
           onSelectedDate={setSelectedDate} onOpenEvent={openEvent} onCreateAt={openCreate} onInteraction={updateFromInteraction} />}
       </div>
     </section>
