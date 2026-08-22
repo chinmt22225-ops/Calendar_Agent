@@ -259,6 +259,33 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .planora-event--cancelled { opacity: .48; filter: grayscale(.45); }
 .planora-event--ai { box-shadow: 0 3px 10px rgb(46 26 33 / .1); }
 
+/* ==========================================================================
+   Google Calendar Real-Time Current Time Indicator (Live Red Track Bar & Dot)
+   ========================================================================== */
+.sx__current-time-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: var(--pl-brand-500, #ea4c78);
+  z-index: 18 !important;
+  pointer-events: none !important;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--pl-brand-500, #ea4c78) 60%, transparent);
+}
+
+.sx__current-time-indicator::before {
+  content: '';
+  position: absolute;
+  left: -5.5px;
+  top: -4.5px;
+  width: 11.5px;
+  height: 11.5px;
+  border-radius: 50%;
+  background: var(--pl-brand-500, #ea4c78);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--pl-brand-500, #ea4c78) 80%, transparent), 0 0 0 2px var(--pl-surface);
+  z-index: 19;
+}
+
 /* Spotlight Glow & Pulse Animation when navigated from Notification */
 @keyframes planora-event-spotlight {
   0% {

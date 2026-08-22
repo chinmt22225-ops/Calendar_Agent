@@ -13,6 +13,7 @@
   "dependencies": {
     "@schedule-x/calendar": "3.7.3",
     "@schedule-x/calendar-controls": "3.7.3",
+    "@schedule-x/current-time": "^3.7.3",
     "@schedule-x/drag-and-drop": "3.7.3",
     "@schedule-x/event-recurrence": "3.7.3",
     "@schedule-x/react": "4.1.0",

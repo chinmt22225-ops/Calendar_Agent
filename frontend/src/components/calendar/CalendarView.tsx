@@ -6,6 +6,7 @@ import {
   type CalendarEvent as ScheduleXEvent,
 } from '@schedule-x/calendar'
 import { createCalendarControlsPlugin } from '@schedule-x/calendar-controls'
+import { createCurrentTimePlugin } from '@schedule-x/current-time'
 import { createDragAndDropPlugin } from '@schedule-x/drag-and-drop'
 import { createEventRecurrencePlugin, createEventsServicePlugin } from '@schedule-x/event-recurrence'
 import { ScheduleXCalendar, useCalendarApp } from '@schedule-x/react'
@@ -112,6 +113,7 @@ function ScheduleCalendar({ events, selectedDate, timeZone, theme, onSelectedDat
   // 15-minute snapping matches Google Calendar standard for clean, responsive dragging
   const dragAndDrop = useMemo(() => createDragAndDropPlugin(15), [])
   const resize = useMemo(() => createResizePlugin(15), [])
+  const currentTime = useMemo(() => createCurrentTimePlugin({ fullWeekWidth: false }), [])
   const callbacksRef = useRef({ onSelectedDate, onOpenEvent, onCreateAt, onInteraction })
   callbacksRef.current = { onSelectedDate, onOpenEvent, onCreateAt, onInteraction }
   const savedView = (localStorage.getItem('planora_calendar_view') || 'week') as 'day' | 'week' | 'month-grid' | 'month-agenda'
@@ -151,7 +153,7 @@ function ScheduleCalendar({ events, selectedDate, timeZone, theme, onSelectedDat
       onClickDateTime: (dateTime) => callbacksRef.current.onCreateAt(initialRangeFromDateTime(dateTime)),
       onBeforeEventUpdateAsync: async (oldEvent, newEvent) => callbacksRef.current.onInteraction(oldEvent, newEvent),
     },
-    plugins: [recurrence, eventsService, calendarControls, dragAndDrop, resize],
+    plugins: [recurrence, eventsService, calendarControls, dragAndDrop, resize, currentTime],
   })
 
   useEffect(() => { calendar?.events.set(events) }, [calendar, events])
