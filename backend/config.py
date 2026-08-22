@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     supabase_publishable_key: str = ""
     supabase_service_role_key: str = ""
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.6-flash"
+    gemini_model: str = "gemini-3.5-flash-lite"
     default_timezone: str = "Asia/Ho_Chi_Minh"
 
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", extra="ignore")

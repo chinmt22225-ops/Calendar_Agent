@@ -2,10 +2,22 @@ import { CalendarDays, Check, Clock3, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 
+function getWeekRangeLabel(): string {
+  const now = new Date()
+  const day = now.getDay()
+  const diffToMonday = (day === 0 ? -6 : 1) - day
+  const monday = new Date(now)
+  monday.setDate(now.getDate() + diffToMonday)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  return `${monday.getDate()} – ${sunday.getDate()} tháng ${sunday.getMonth() + 1}`
+}
+
 export function LoginView() {
   const { configured, signInWithGoogle } = useAuth()
   const [error, setError] = useState('')
   const [signingIn, setSigningIn] = useState(false)
+  const weekLabel = getWeekRangeLabel()
 
   const handleLogin = async () => {
     setError('')
@@ -45,7 +57,7 @@ export function LoginView() {
       <section className="login-visual" aria-label="Minh họa lịch học Planora">
         <span className="login-glow glow-one" /><span className="login-glow glow-two" />
         <article className="login-week-card">
-          <header><span><strong>Tuần của bạn</strong><small>18 – 24 tháng 8</small></span><em>76% đã lên kế hoạch</em></header>
+          <header><span><strong>Tuần của bạn</strong><small>{weekLabel}</small></span><em>76% đã lên kế hoạch</em></header>
           <div className="login-week-head"><span>THỨ 2</span><span>THỨ 3</span><span>THỨ 4</span><span>THỨ 5</span><span>THỨ 6</span></div>
           <div className="login-week-grid">
             <i /><i /><i /><i /><i />

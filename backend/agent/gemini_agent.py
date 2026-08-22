@@ -39,7 +39,7 @@ Khi công cụ lập lịch trả complete=false, phải nói rõ số phút đ�
 Ngày giờ hiện tại: {now}. Múi giờ của người dùng: {timezone}.
 """
 
-MAX_HISTORY_CHARACTERS = 48_000
+MAX_HISTORY_CHARACTERS = 24_000
 MAX_TOOL_ROUNDS = 8
 
 

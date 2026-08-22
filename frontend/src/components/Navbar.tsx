@@ -61,9 +61,36 @@ export function Navbar() {
   return <>
     <header className="navbar">
       <button className="brand" onClick={() => navigate('/calendar')} aria-label="Mở Lịch Planora"><span className="brand-mark"><CalendarDays size={19} /></span><span>Planora</span></button>
-      <nav className="view-switch" data-view={view} aria-label="Chuyển trang">
-        <button className={view === 'chat' ? 'active' : ''} aria-current={view === 'chat' ? 'page' : undefined} onClick={() => navigate('/chat')}><Bot size={16} /> Trợ lý AI</button>
-        <button className={view === 'calendar' ? 'active' : ''} aria-current={view === 'calendar' ? 'page' : undefined} onClick={() => navigate('/calendar')}><CalendarDays size={16} /> Lịch</button>
+      <nav
+        className="view-switch"
+        data-view={view}
+        aria-label="Chuyển trang"
+        role="tablist"
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            e.preventDefault()
+            navigate(view === 'chat' ? '/calendar' : '/chat')
+          }
+        }}
+      >
+        <button
+          role="tab"
+          aria-selected={view === 'chat'}
+          className={view === 'chat' ? 'active' : ''}
+          aria-current={view === 'chat' ? 'page' : undefined}
+          onClick={() => navigate('/chat')}
+        >
+          <Bot size={16} /> Trợ lý AI
+        </button>
+        <button
+          role="tab"
+          aria-selected={view === 'calendar'}
+          className={view === 'calendar' ? 'active' : ''}
+          aria-current={view === 'calendar' ? 'page' : undefined}
+          onClick={() => navigate('/calendar')}
+        >
+          <CalendarDays size={16} /> Lịch
+        </button>
       </nav>
       <div className="account-menu">
         <div ref={notificationsRef} className="popover-anchor">

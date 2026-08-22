@@ -32,7 +32,10 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     setError(null)
     try {
-      const nextEvents = await eventsApi.fetchEvents()
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Quá thời gian tải lịch (15 giây). Vui lòng kiểm tra mạng và thử lại.')), 15000)
+      )
+      const nextEvents = await Promise.race([eventsApi.fetchEvents(), timeoutPromise])
       if (sequence === refreshSequence.current) setEvents(nextEvents)
     }
     catch (reason) {

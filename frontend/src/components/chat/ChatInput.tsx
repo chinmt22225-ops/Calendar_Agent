@@ -94,8 +94,24 @@ export function ChatInput({ initialValue = '', disabled, streaming, onSend, onSt
     <div className="input-wrap">
       <div className={`chat-input-block ${dragging ? 'dragging' : ''}`} onDragEnter={(event) => { event.preventDefault(); if (!disabled) setDragging(true) }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false) }} onDrop={onDrop} aria-busy={processing}>
         {dragging && <div className="chat-dropzone"><ImagePlus size={22} /><strong>Thả ảnh vào đây</strong></div>}
+        {images.length > 0 && (
+          <div className="image-preview-header">
+            <span className="image-count">{images.length}/3 ảnh</span>
+            {images.length >= 2 && (
+              <button
+                type="button"
+                className="clear-all-images-btn"
+                onClick={() => {
+                  images.forEach((img) => URL.revokeObjectURL(img.preview))
+                  setImages([])
+                }}
+              >
+                <X size={11} /> Xóa tất cả ảnh
+              </button>
+            )}
+          </div>
+        )}
         {images.length > 0 && <div className="image-preview-list">{images.map((image) => <figure key={image.id}><img src={image.preview} alt={image.name} /><button onClick={() => { URL.revokeObjectURL(image.preview); setImages((items) => items.filter((item) => item.id !== image.id)) }} title="Bỏ ảnh"><X size={13} /></button></figure>)}</div>}
-        {images.length > 0 && <span className="image-count">{images.length}/3 ảnh</span>}
         <div className="chat-input">
           <input ref={fileInput} className="file-input-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={onFileChange} disabled={disabled} aria-hidden="true" tabIndex={-1} />
           <button className="attach-button" onClick={() => fileInput.current?.click()} title="Chọn ảnh từ máy" aria-label="Chọn ảnh từ máy" disabled={disabled}><ImagePlus size={19} /></button>

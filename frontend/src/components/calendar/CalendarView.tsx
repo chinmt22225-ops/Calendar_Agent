@@ -13,6 +13,7 @@ import { createResizePlugin } from '@schedule-x/resize'
 import '@schedule-x/theme-default/dist/index.css'
 import { CalendarPlus, LoaderCircle, Menu, RefreshCw, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import { useCalendar } from '../../context/CalendarContext'
 import { useProfile } from '../../context/ProfileContext'
 import { useTheme } from '../../context/ThemeContext'
@@ -104,10 +105,9 @@ function ScheduleCalendar({ events, selectedDate, timeZone, dayStart, dayEnd, th
   const recurrence = useMemo(() => createEventRecurrencePlugin(), [])
   const eventsService = useMemo(() => createEventsServicePlugin(), [])
   const calendarControls = useMemo(() => createCalendarControlsPlugin(), [])
-  // A five-minute snap keeps the event visually close to the pointer while
-  // preserving predictable time values when it is dropped or resized.
-  const dragAndDrop = useMemo(() => createDragAndDropPlugin(5), [])
-  const resize = useMemo(() => createResizePlugin(5), [])
+  // 15-minute snapping matches Google Calendar standard for clean, responsive dragging
+  const dragAndDrop = useMemo(() => createDragAndDropPlugin(15), [])
+  const resize = useMemo(() => createResizePlugin(15), [])
   const callbacksRef = useRef({ onSelectedDate, onOpenEvent, onCreateAt, onInteraction })
   callbacksRef.current = { onSelectedDate, onOpenEvent, onCreateAt, onInteraction }
   const calendar = useCalendarApp({
@@ -158,6 +158,7 @@ function ScheduleCalendar({ events, selectedDate, timeZone, dayStart, dayEnd, th
 }
 
 export function CalendarView() {
+  const { user } = useAuth()
   const { events, loading, error, categories, categoryColors, create, update, remove, refresh } = useCalendar()
   const { profile, loading: profileLoading, error: profileError, refresh: refreshProfile } = useProfile()
   const { theme } = useTheme()
@@ -203,7 +204,8 @@ export function CalendarView() {
       notify(source.recurrence_rule ? 'Đã di chuyển toàn bộ chuỗi lặp lại.' : 'Đã cập nhật thời gian sự kiện.', 'success')
       return true
     } catch (reason) {
-      notify(reason instanceof Error ? reason.message : 'Không thể cập nhật sự kiện.')
+      const message = reason instanceof Error ? reason.message : 'Không thể cập nhật sự kiện.'
+      notify(`${message} Thao tác đã được hoàn tác về vị trí cũ.`)
       return false
     } finally { setInteractionLoading(false) }
   }
@@ -230,7 +232,9 @@ export function CalendarView() {
           onSelectedDate={setSelectedDate} onOpenEvent={openEvent} onCreateAt={openCreate} onInteraction={updateFromInteraction} />}
       </div>
     </section>
-    {modalOpen && <EventModal event={selected} initialRange={initialRange} categories={categories} timeZone={timeZone} onClose={close}
+    {modalOpen && <EventModal event={selected} initialRange={initialRange} categories={categories} timeZone={timeZone}
+      ownerName={profile?.display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Lịch học'}
+      onClose={close}
       onSave={async (draft: EventDraft) => { selected ? await update(selected.id, draft) : await create(draft); close(); notify('Đã lưu sự kiện.', 'success') }}
       onDelete={selected ? async () => { await remove(selected.id); close(); notify('Đã chuyển sự kiện vào Thùng rác.', 'success') } : null} />}
     {trashOpen && <TrashPanel onClose={() => setTrashOpen(false)} />}

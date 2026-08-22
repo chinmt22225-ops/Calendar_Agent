@@ -103,14 +103,20 @@ export function TaskPanel() {
           {formError && <p className="form-error" role="alert">{formError}</p>}
           <button className="task-save" disabled={busy} type="submit">{busy ? 'Đang lưu…' : editing === 'new' ? 'Tạo công việc' : 'Lưu thay đổi'}</button>
         </form>}
-        {loading ? <div className="task-skeleton" aria-label="Đang tải công việc"><i /><i /><i /></div> : loadError ? <div className="task-error"><AlertTriangle size={17} /><strong>Không thể tải công việc</strong><small>{loadError}</small><button onClick={() => void load()}><RotateCcw size={13} /> Thử lại</button></div> : ordered.length === 0 ? <div className="task-empty"><Check size={18} /><strong>Chưa có công việc</strong><small>Thêm công việc để theo dõi tiến độ học tập.</small><button onClick={openCreate}><Plus size={13} /> Thêm công việc</button></div> : <div className="task-list">{ordered.map((task) => {
-          const overdue = task.status !== 'completed' && task.deadline < today
-          return <article key={task.id} className={`${task.status === 'completed' ? 'completed' : ''} ${overdue ? 'overdue' : ''}`}>
-            <button className="task-check" disabled={updatingIds.has(task.id)} aria-label={task.status === 'completed' ? 'Mở lại công việc' : 'Đánh dấu hoàn thành'} onClick={() => void toggle(task)}>{updatingIds.has(task.id) ? <RotateCcw className="spin" size={13} /> : task.status === 'completed' ? <Check size={13} /> : <Circle size={13} />}</button>
-            <div><strong>{task.title}</strong><small><span>{task.subject}</span><span><Clock3 size={10} /> {task.estimated_hours} giờ</span></small><small className="task-deadline">{overdue && <AlertTriangle size={10} />} {overdue ? 'Quá hạn · ' : ''}{new Date(`${task.deadline}T12:00`).toLocaleDateString('vi-VN')} · <em className={`priority priority-${task.priority}`}>{task.priority === 1 ? 'Cao' : task.priority === 2 ? 'Vừa' : 'Thấp'}</em></small></div>
-            <span className="task-actions"><button disabled={updatingIds.has(task.id)} aria-label="Chỉnh sửa công việc" title="Chỉnh sửa" onClick={() => openEdit(task)}><Pencil size={12} /></button><button disabled={updatingIds.has(task.id)} aria-label="Xóa công việc" title="Xóa" onClick={() => setDeleteTarget(task)}><Trash2 size={12} /></button></span>
-          </article>
-        })}</div>}
+        {loading ? <div className="task-skeleton" aria-label="Đang tải công việc"><i /><i /><i /></div> : loadError ? <div className="task-error"><AlertTriangle size={17} /><strong>Không thể tải công việc</strong><small>{loadError}</small><button onClick={() => void load()}><RotateCcw size={13} /> Thử lại</button></div> : ordered.length === 0 ? <div className="task-empty"><Check size={18} /><strong>Chưa có công việc</strong><small>Thêm công việc để theo dõi tiến độ học tập.</small><button onClick={openCreate}><Plus size={13} /> Thêm công việc</button></div> : (
+          <div className={`task-list-container ${ordered.length > 4 ? 'has-scroll' : ''}`}>
+            <div className="task-list">
+              {ordered.map((task) => {
+                const overdue = task.status !== 'completed' && task.deadline < today
+                return <article key={task.id} className={`${task.status === 'completed' ? 'completed' : ''} ${overdue ? 'overdue' : ''}`}>
+                  <button className="task-check" disabled={updatingIds.has(task.id)} aria-label={task.status === 'completed' ? 'Mở lại công việc' : 'Đánh dấu hoàn thành'} onClick={() => void toggle(task)}>{updatingIds.has(task.id) ? <RotateCcw className="spin" size={13} /> : task.status === 'completed' ? <Check size={13} /> : <Circle size={13} />}</button>
+                  <div><strong>{task.title}</strong><small><span>{task.subject}</span><span><Clock3 size={10} /> {task.estimated_hours} giờ</span></small><small className="task-deadline">{overdue && <AlertTriangle size={10} />} {overdue ? 'Quá hạn · ' : ''}{new Date(`${task.deadline}T12:00`).toLocaleDateString('vi-VN')} · <em className={`priority priority-${task.priority}`}>{task.priority === 1 ? 'Cao' : task.priority === 2 ? 'Vừa' : 'Thấp'}</em></small></div>
+                  <span className="task-actions"><button disabled={updatingIds.has(task.id)} aria-label="Chỉnh sửa công việc" title="Chỉnh sửa" onClick={() => openEdit(task)}><Pencil size={12} /></button><button disabled={updatingIds.has(task.id)} aria-label="Xóa công việc" title="Xóa" onClick={() => setDeleteTarget(task)}><Trash2 size={12} /></button></span>
+                </article>
+              })}
+            </div>
+          </div>
+        )}
       </>}
       <Dialog open={Boolean(deleteTarget)} title="Xóa công việc?" description={deleteTarget ? `Công việc “${deleteTarget.title}” sẽ bị xóa khỏi danh sách.` : undefined} destructive confirmLabel="Xóa công việc" busy={busy} onClose={() => !busy && setDeleteTarget(null)} onConfirm={remove} />
     </section>
