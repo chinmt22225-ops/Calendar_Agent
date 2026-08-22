@@ -150,12 +150,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .schedule-x-wrap { position: relative; min-width: 0; max-width: 100%; min-height: 0; padding: 10px 14px 14px; overflow: hidden; background: var(--pl-surface); }
 .schedule-x-wrap > .sx-react-calendar-wrapper { width: 100%; height: 100%; }
 .schedule-x-wrap .sx__calendar { height: 100%; border: 1px solid var(--pl-line); border-radius: 15px; background: var(--pl-surface); box-shadow: var(--pl-shadow-sm); --sx-color-primary: var(--pl-brand-600); --sx-color-on-primary: #fff; --sx-color-primary-container: var(--pl-brand-100); --sx-color-on-primary-container: var(--pl-brand-700); --sx-color-surface: var(--pl-surface); --sx-color-surface-container: var(--pl-surface-soft); --sx-color-on-surface: var(--pl-ink); --sx-color-on-surface-variant: var(--pl-ink-muted); --sx-color-outline: var(--pl-line-strong); --sx-color-outline-variant: var(--pl-line); }
-.sx__calendar-header { padding: 14px 16px 12px; border-bottom: 1px solid var(--pl-line); }
+.sx__calendar-header { position: relative !important; z-index: 50 !important; padding: 14px 16px 12px; border-bottom: 1px solid var(--pl-line); }
 .sx__calendar-header button, .sx__calendar-header .sx__view-selection-selected-item { border-radius: 9px; font-weight: 680; }
+.sx__view-selection { position: relative !important; z-index: 55 !important; }
+.sx__view-selection-selected-item { border-color: var(--pl-line-strong) !important; background: var(--pl-surface) !important; color: var(--pl-ink-strong) !important; }
+.sx__view-selection-items, .sx__date-picker-popup { position: absolute !important; top: calc(100% + 4px) !important; z-index: 100 !important; border-radius: 12px !important; border: 1px solid var(--pl-line-strong) !important; background: var(--pl-surface) !important; box-shadow: var(--pl-shadow-lg), 0 12px 32px rgb(0 0 0 / .35) !important; overflow: hidden !important; padding: 5px !important; }
+.sx__view-selection-item { padding: 8px 14px !important; border-radius: 8px !important; font-size: 13px !important; font-weight: 600 !important; color: var(--pl-ink) !important; transition: all 120ms ease !important; }
+.sx__view-selection-item:hover, .sx__view-selection-item:focus { background: color-mix(in srgb, var(--pl-brand-500) 14%, transparent) !important; color: var(--pl-brand-500) !important; }
+.sx__view-selection-item.is-selected { background: var(--pl-brand-500) !important; color: #fff !important; }
 .sx__today-button { border-color: var(--pl-line-strong) !important; color: var(--pl-ink-strong) !important; background: var(--pl-surface) !important; }
 .sx__today-button:hover, .sx__forward-backward-navigation button:hover { color: var(--pl-brand-700) !important; background: var(--pl-brand-50) !important; }
 .sx__range-heading { max-width: none !important; overflow: visible !important; text-overflow: unset !important; white-space: nowrap !important; color: var(--pl-ink-strong); font-weight: 780; letter-spacing: -.025em; font-size: 17px !important; }
-.sx__week-header, .sx__week-grid__date-axis { position: sticky !important; top: 0 !important; z-index: 25 !important; background: var(--pl-surface) !important; box-shadow: 0 1px 0 var(--pl-line); }
+.sx__week-header, .sx__week-grid__date-axis { position: sticky !important; top: 0 !important; z-index: 20 !important; background: var(--pl-surface) !important; box-shadow: 0 1px 0 var(--pl-line); }
 .sx__week-grid__date-axis, .sx__month-grid-day__header { background: var(--pl-surface); }
 .sx__week-grid__date-axis-day, .sx__month-grid-day { border-color: var(--pl-line) !important; }
 .sx__time-grid { position: relative; z-index: 1; }
