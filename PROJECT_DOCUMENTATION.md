@@ -84,14 +84,17 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 - Lưu conversation và cặp tin nhắn bằng một database transaction; mỗi yêu cầu có operation ID/fingerprint để replay an toàn và tránh retry khác payload.
 - Rate limit 10 yêu cầu AI/phút/người dùng dùng chung giữa các backend worker qua PostgreSQL.
 
-### 3.3. Calendar
+### 3.3. Calendar & Thông báo / Calendar & Notifications
 
-- Chế độ tháng, tuần, ngày và lịch biểu.
-- Vạch chỉ thời gian hiện tại.
+- Chế độ tháng, tuần, ngày và lịch biểu (Schedule-X).
+- **Trục tung thời gian 24 giờ liên tục (00:00 - 24:00)** với chiều cao lưới rộng rãi 1680px (~70px/giờ) và tự động cuộn nhẹ đến khung giờ ban ngày (~07:00-08:00) khi khởi động.
+- **Vạch chỉ thời gian thực (Real-time Current Time Indicator)**: Vạch đỏ hồng kèm chấm tròn phát sáng đa tầng ở trục giờ, tự động cập nhật vị trí từng phút theo múi giờ `Asia/Ho_Chi_Minh` chuẩn Google Calendar.
+- **Kéo thả và Resize mượt mà**: Di chuyển sự kiện xuyên suốt tất cả các ngày trong tuần mà không bị cắt viền (`overflow: visible`), bước nhảy 15 phút (15-min snap), thẻ mờ đối chiếu vị trí ban đầu (ghost card) và tay nắm kéo giãn cạnh đáy tiện lợi.
+- **Hệ thống thông báo đẩy Desktop (OS-level Notification qua Service Worker `sw.js`)**: Nhắc nhở trước 15 phút ngay cả khi người dùng đang lướt web ở tab khác hoặc thu nhỏ trình duyệt, kèm âm thanh chuông báo tinh tế và cơ chế click-to-focus chuyển ngay đến sự kiện trên Lịch.
+- **Hiệu ứng Spotlight phát sáng đa tầng (Direct DOM Pulse & Glow)**: Làm nổi bật sự kiện trong 2.8 giây khi chuyển từ thông báo mà không kích hoạt render lại Schedule-X (Zero Re-render), loại bỏ hoàn toàn hiện tượng chớp/load lại.
+- **Menu chọn chế độ xem nâng cao (`z-index: 100`)**: Hiển thị đè lên toàn bộ thanh tiêu đề ngày sticky một cách liền mạch, bo góc 12px chuẩn thiết kế hiện đại.
 - Tạo sự kiện bằng nút “Tạo mới” hoặc chọn ô thời gian trống.
-- Xem và sửa sự kiện bằng modal.
-- Kéo thả sự kiện để đổi thời gian.
-- Resize sự kiện để đổi thời lượng.
+- Xem và sửa sự kiện bằng modal trực quan (`EventModal`).
 - Xóa mềm sự kiện vào Thùng rác, khôi phục hoặc xóa vĩnh viễn.
 - Lọc sự kiện theo môn học hoặc danh mục.
 - Mini-calendar 7×6 có điều hướng tháng, ngày hiện tại và ngày được chọn.
@@ -114,7 +117,7 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 
 ### English Summary
 
-The implemented product includes Google OAuth, JWT-protected APIs, persistent and manageable conversations, backend-controlled multi-round Gemini tool calling for text and images, recurring and all-day events, recoverable deletion, study tasks, profile settings, light/dark themes, in-app upcoming-event badges, conflict prevention, free-slot search, and automated study-session distribution.
+The implemented product includes Google OAuth, JWT-protected APIs, persistent and manageable conversations, backend-controlled multi-round Gemini tool calling for text and images, full 24-hour vertical calendar grid (00:00-24:00), Google Calendar-style real-time indicator line with glowing dot, native OS-level desktop push notifications via background Service Worker (`sw.js`) with audio chime and click-to-focus navigation, zero-rerender direct DOM event spotlighting, smooth cross-column drag & drop and resizing, recurring and all-day events, recoverable deletion, study tasks, profile settings, light/dark themes, in-app upcoming-event badges, conflict prevention, free-slot search, and automated study-session distribution.
 
 ---
 

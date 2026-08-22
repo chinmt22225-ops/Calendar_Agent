@@ -15,7 +15,12 @@ See [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for the complete biling
 - Vòng function calling nhiều bước do backend kiểm soát cho Calendar và Tasks/deadline: đọc dữ liệu thật, tạo một/nhiều sự kiện hoặc task, dời, cập nhật, xóa, tìm giờ trống và tự động phân bổ buổi ôn tập.
 - Ảnh thời khóa biểu được gửi cùng text tới Gemini; nếu yêu cầu “tạo lại” chưa rõ gộp hay thay thế, thời gian áp dụng hoặc recurrence, trợ lý sẽ hỏi lại thay vì tự đoán/xóa lịch.
 - Phản hồi rỗng, tool lỗi hoặc stream thiếu sự kiện hoàn tất được báo lỗi rõ ràng; ứng dụng không còn dùng câu trả lời thành công giả.
-- Calendar Schedule-X tháng/tuần/ngày/lịch biểu, mini-calendar, sự kiện cả ngày, recurrence ngày/tuần/tháng, kéo thả và resize.
+- Calendar Schedule-X tháng/tuần/ngày/lịch biểu, mini-calendar, sự kiện cả ngày, recurrence ngày/tuần/tháng.
+- Trục thời gian 24 giờ hoàn chỉnh (00:00 - 24:00) với chiều cao lưới thoáng đãng (1680px) và cuộn thông minh đến giờ làm việc ban ngày.
+- Vạch theo dõi thời gian thực (Real-time Current Time Indicator) với chấm tròn phát sáng đa tầng chuẩn Google Calendar, tự động cập nhật từng phút theo múi giờ.
+- Kéo thả mượt mà xuyên suốt các ngày trong tuần (15-min snap, ghost card đối chiếu) và tay nắm thay đổi thời lượng (resize handle) tiện lợi.
+- Hệ thống thông báo đẩy màn hình hệ điều hành (Desktop Notifications qua Service Worker `sw.js` ngầm), hoạt động cả khi đang mở tab khác hoặc thu nhỏ trình duyệt, kèm âm thanh chuông báo tinh tế và điều hướng 1-click chuyển đến sự kiện trên lịch.
+- Hiệu ứng Spotlight phát sáng đa tầng trực tiếp tại DOM (Zero Re-render) trỏ vào sự kiện khi chuyển từ thông báo.
 - Lọc lịch theo môn học/danh mục và đồng bộ dữ liệu tức thời giữa Chat và Calendar.
 - Kiểm tra xung đột thời gian ở cả REST API và công cụ AI.
 - Tasks trong sidebar, Thùng rác khôi phục/xóa vĩnh viễn, trạng thái hoàn thành và badge sự kiện 24 giờ tới.
