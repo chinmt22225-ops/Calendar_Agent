@@ -1,7 +1,10 @@
+import logging
 from datetime import date, datetime, time, timezone
 from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
+
+logger = logging.getLogger(__name__)
 
 from pydantic import BaseModel, Field, ValidationError
 from postgrest.exceptions import APIError as PostgrestAPIError
@@ -146,29 +149,54 @@ class CalendarTools:
         if len(events) > 50:
             return {"error": "Mỗi lần chỉ được tạo tối đa 50 sự kiện."}
         payloads: list[dict] = []
+        skipped_conflicts: list[str] = []
+        validation_errors: list[str] = []
         for event in events:
             try:
                 candidate = EventCreate.model_validate({
                     **event.model_dump(mode="json"), "status": "scheduled", "is_ai_generated": True,
                 }).model_dump(mode="json")
             except ValueError as exc:
-                return {"error": f"Dữ liệu của '{event.title}' không hợp lệ: {exc}"}
+                validation_errors.append(f"'{event.title}': {exc}")
+                logger.warning("Validation error for event '%s': %s", event.title, exc)
+                continue
             if self._event_conflict(candidate, additional=payloads):
-                return {"error": f"'{event.title}' đang trùng với một sự kiện khác. Hãy tìm khung giờ khác."}
+                skipped_conflicts.append(event.title)
+                logger.info("Skipping '%s' due to conflict with existing event.", event.title)
+                continue
             payloads.append({"user_id": self.user_id, **candidate})
+        if not payloads:
+            msg = "Tất cả sự kiện đều bị trùng lịch với các sự kiện hiện có."
+            if skipped_conflicts:
+                msg += f" Bị trùng: {', '.join(skipped_conflicts)}."
+            if validation_errors:
+                msg += f" Lỗi dữ liệu: {'; '.join(validation_errors)}."
+            logger.warning("create_calendar_events: No events to create. skipped=%s", skipped_conflicts)
+            return {"error": msg}
         try:
+            logger.info("Creating %d events via RPC (skipping %d conflicts)", len(payloads), len(skipped_conflicts))
             created = self.client.rpc("create_calendar_events_atomic", {
                 "p_user_id": self.user_id,
                 "p_events": payloads,
             }).execute().data
         except PostgrestAPIError as exc:
+            logger.error("RPC create_calendar_events_atomic error: %s", exc)
             return {"error": _calendar_database_error(exc)}
         if not created:
+            logger.error("create_calendar_events_atomic returned empty result for %d payloads", len(payloads))
             return {"error": "Không thể tạo sự kiện lúc này."}
         ids = [row["id"] for row in created]
         label = f"Đã thêm {len(created)} sự kiện vào lịch" if len(created) > 1 else f"Đã thêm {created[0]['title']} vào lịch"
         self.actions.append({"type": "created", "label": label, "event_ids": ids})
-        return {"created_count": len(created), "events": created}
+        result: dict = {"created_count": len(created), "events": created}
+        if skipped_conflicts:
+            result["skipped_conflicts"] = skipped_conflicts
+            result["skipped_count"] = len(skipped_conflicts)
+        if validation_errors:
+            result["validation_errors"] = validation_errors
+        logger.info("create_calendar_events: created=%d, skipped=%d", len(created), len(skipped_conflicts))
+        return result
+
 
     def reschedule_event(self, event_id: str, new_start: str, new_end: str) -> dict:
         """Move an existing event or recurrence series to a new ISO time range.

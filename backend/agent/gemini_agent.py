@@ -37,15 +37,20 @@ QUY TẮC CỐT LÕI VỀ HÀNH ĐỘNG & THAO TÁC CƠ SỞ DỮ LIỆU:
      c. Nếu người dùng xác nhận "hãy cập nhật dựa trên ảnh": BẮT BUỘC PHẢI GỌI `create_calendar_events` ngay trong lượt đó, KHÔNG ĐƯỢC chỉ trả lời văn bản mà không gọi tool!
 
 3. THỜI GIAN & MÚI GIỜ:
-   - Luôn đọc lịch hiện tại (`get_current_schedule`) trước khi tạo hoặc dời lịch để kiểm tra xung đột.
    - Luôn sử dụng định dạng ISO 8601 có múi giờ (VD: `2026-09-28T07:30:00+07:00`) cho `start_time` và `end_time`.
    - Với các môn học theo tiết ở đại học Việt Nam (nếu không ghi rõ giờ): Tiết 1-4 (07:30 - 11:00), Tiết 6-9 (12:40 - 16:10), v.v.
    - Ngày giờ hiện tại: {now}. Múi giờ của người dùng: {timezone}.
+   - KHÔNG cần gọi `get_current_schedule` trước khi tạo lịch mới — hệ thống sẽ tự bỏ qua các sự kiện bị trùng.
 
-4. TRẢ LỜI NGƯỜI DÙNG:
+4. ĐỌC & XỬ LÝ KẾT QUẢ TOOL:
+   - Nếu tool `create_calendar_events` trả về kết quả có `created_count > 0`: Thông báo thành công với số sự kiện đã tạo.
+   - Nếu kết quả có thêm trường `skipped_conflicts`: Thông báo rằng một số sự kiện bị bỏ qua vì trùng với lịch đã có, và liệt kê tên chúng.
+   - Nếu tool trả về trường `error`: PHẢI thông báo lỗi đó rõ ràng cho người dùng, KHÔNG ĐƯỢC nói "đã tạo thành công".
+   - Luôn báo kết quả thực tế từ tool cho người dùng, không được tự suy diễn thêm.
+
+5. TRẢ LỜI NGƯỜI DÙNG:
    - Trả lời bằng tiếng Việt thân thiện, rõ ràng, ngắn gọn.
    - Chỉ báo cho người dùng biết lịch đã được tạo SAU KHI tool `create_calendar_events` hoặc `create_calendar_event` đã thực thi thành công.
-   - Khi công cụ trả lỗi hoặc trùng lịch, giải thích rõ lỗi cho người dùng và đề xuất hướng xử lý.
    - Khi công cụ lập lịch trả complete=false, phải nói rõ số phút đã xếp và số phút còn thiếu.
 """
 
@@ -164,7 +169,7 @@ class CalendarAgentSession:
             contents = [*self.contents, _user_content(prompt, images or [])]
             try:
                 logger.info("Stream model %s (%s) [Bậc: %s, Điểm: %s/10]", target_model, model_desc.name, model_desc.tier_label, model_desc.intelligence_score)
-                for _ in range(MAX_TOOL_ROUNDS):
+                for round_idx in range(MAX_TOOL_ROUNDS):
                     response = await self.client.aio.models.generate_content(
                         model=target_model,
                         contents=contents,
@@ -172,18 +177,26 @@ class CalendarAgentSession:
                     )
                     calls = response.function_calls or []
                     if calls:
+                        call_names = [c.name for c in calls]
+                        logger.info("[Round %d] Model gọi %d tool(s): %s", round_idx + 1, len(calls), call_names)
                         results = []
                         for call in calls:
-                            results.append(await asyncio.to_thread(
+                            result = await asyncio.to_thread(
                                 self.tools.execute_tool,
                                 call.name or "",
                                 dict(call.args or {}),
-                            ))
+                            )
+                            if "error" in result:
+                                logger.warning("[Tool %s] Trả về lỗi: %s", call.name, result["error"])
+                            else:
+                                logger.info("[Tool %s] Thành công: %s", call.name, {k: v for k, v in result.items() if k != "events"})
+                            results.append(result)
                         _append_tool_round(contents, response, results)
                         continue
                     text = _response_text(response)
                     if not text:
                         raise _empty_response_error(response)
+                    logger.info("[Round %d] Model KHÔNG gọi tool — trả về text (%d ký tự). Tool history: %s", round_idx + 1, len(text), [c.name for c in (response.function_calls or [])])
                     self.model_used = model_desc.id
                     self.model_name = model_desc.name
                     yield text
