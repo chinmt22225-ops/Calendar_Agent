@@ -156,7 +156,15 @@ function ScheduleCalendar({ events, selectedDate, timeZone, theme, onSelectedDat
     plugins: [recurrence, eventsService, calendarControls, dragAndDrop, resize, currentTime],
   })
 
-  useEffect(() => { calendar?.events.set(events) }, [calendar, events])
+  useEffect(() => {
+    if (eventsService && calendar) {
+      try {
+        eventsService.set(events)
+      } catch {
+        calendar.events.set(events)
+      }
+    }
+  }, [calendar, events, eventsService])
   useEffect(() => { calendar?.setTheme(theme) }, [calendar, theme])
   useEffect(() => {
     try {

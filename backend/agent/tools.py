@@ -52,6 +52,7 @@ class CalendarTools:
             self.create_calendar_event,
             self.reschedule_event,
             self.delete_calendar_event,
+            self.delete_calendar_events_in_range,
             self.find_free_time_slots,
             self.auto_plan_study_sessions,
             self.get_study_tasks,
@@ -243,6 +244,42 @@ class CalendarTools:
             return {"error": "Không tìm thấy sự kiện."}
         self.actions.append({"type": "deleted", "label": f"Đã chuyển {rows[0]['title']} vào Thùng rác", "event_ids": [event_id]})
         return {"deleted": True, "event": rows[0]}
+
+    def delete_calendar_events_in_range(self, start_date: str, end_date: str, category: str | None = None) -> dict:
+        """Chuyển các sự kiện trong một khoảng thời gian (YYYY-MM-DD) vào Thùng rác. Dùng khi người dùng muốn xóa hoặc dọn dẹp lịch cũ để cập nhật thời khóa biểu mới.
+
+        Args:
+            start_date: Ngày bắt đầu YYYY-MM-DD (VD: '2026-09-28').
+            end_date: Ngày kết thúc YYYY-MM-DD (VD: '2027-01-17').
+            category: Tùy chọn lọc theo danh mục (VD: 'Học tập' hoặc để None để xóa tất cả).
+        """
+        try:
+            start_d = date.fromisoformat(start_date)
+            end_d = date.fromisoformat(end_date)
+        except ValueError:
+            return {"error": "Ngày bắt đầu và kết thúc phải có dạng YYYY-MM-DD."}
+        if end_d < start_d:
+            return {"error": "end_date phải sau hoặc bằng start_date."}
+
+        tz = ZoneInfo(self.timezone)
+        start_iso = datetime.combine(start_d, time.min, tzinfo=tz).isoformat()
+        end_iso = datetime.combine(end_d, time.max, tzinfo=tz).isoformat()
+
+        query = self.client.table("events").select("id,title").eq("user_id", self.user_id).is_("deleted_at", "null")
+        query = query.gte("start_time", start_iso).lte("start_time", end_iso)
+        if category:
+            query = query.eq("category", category)
+        target_events = query.execute().data or []
+        if not target_events:
+            return {"deleted_count": 0, "message": "Không tìm thấy sự kiện nào trong khoảng thời gian này."}
+
+        target_ids = [e["id"] for e in target_events]
+        now_utc = datetime.now(timezone.utc).isoformat()
+        self.client.table("events").update({"deleted_at": now_utc}).in_("id", target_ids).eq("user_id", self.user_id).execute()
+
+        label = f"Đã xóa {len(target_ids)} sự kiện trong khoảng {start_date} - {end_date}"
+        self.actions.append({"type": "deleted", "label": label, "event_ids": target_ids})
+        return {"deleted_count": len(target_ids), "event_ids": target_ids}
 
     def find_free_time_slots(self, target_date: str, duration_minutes: int) -> dict:
         """Find available study slots on a date.

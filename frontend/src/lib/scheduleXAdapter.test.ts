@@ -133,4 +133,45 @@ describe('Schedule-X adapter', () => {
     app.destroy()
     host.remove()
   })
+
+  it('correctly expands recurring events when set dynamically via app.events.set', () => {
+    const recurrence = createEventRecurrencePlugin()
+    const eventsService = createEventsServicePlugin()
+    const app = createCalendar({
+      views: [createViewWeek()],
+      defaultView: 'week',
+      selectedDate: Temporal.PlainDate.from('2026-09-28'),
+      timezone: 'Asia/Ho_Chi_Minh',
+      events: [],
+    }, [recurrence, eventsService])
+    const host = document.createElement('div')
+    document.body.append(host)
+    app.render(host)
+
+    const recurringEvent: CalendarEvent = {
+      id: 'event-study-1',
+      title: 'Xác suất thống kê (LT)',
+      description: 'cs2:PMT_NĐH4.3',
+      start_time: '2026-09-28T00:30:00.000Z',
+      end_time: '2026-09-28T04:00:00.000Z',
+      color: '#2563eb',
+      category: 'Học tập',
+      status: 'scheduled',
+      is_ai_generated: true,
+      all_day: false,
+      all_day_start: null,
+      all_day_end: null,
+      recurrence_rule: 'weekly',
+      recurrence_end: '2027-01-17',
+    }
+
+    const converted = toScheduleXEvent(recurringEvent, 'Asia/Ho_Chi_Minh')
+    eventsService.set([converted])
+
+    const internal = eventsService as unknown as { $app: { calendarEvents: { list: { value: Array<any> } } } }
+    expect(internal.$app.calendarEvents.list.value.length).toBeGreaterThan(1)
+    app.destroy()
+    host.remove()
+  })
 })
+
