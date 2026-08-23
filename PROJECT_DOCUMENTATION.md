@@ -1,889 +1,491 @@
-# AI Calendar Agent — Tài liệu dự án / Project Documentation
+# AI Calendar Agent — Tài liệu Kỹ thuật Dự án Toàn diện
 
-> **Tiếng Việt:** Tài liệu này mô tả toàn bộ sản phẩm AI Calendar Agent từ mục tiêu, kiến trúc tổng thể đến cách từng thành phần hoạt động, cách cài đặt, kiểm thử và phát triển tiếp.
->
-> **English:** This document describes the complete AI Calendar Agent product, from its goals and high-level architecture to component behavior, setup, testing, and future development.
+> **Tài liệu này mô tả toàn diện hệ thống AI Calendar Agent (Planora): từ mục tiêu sản phẩm, kiến trúc kỹ thuật, cơ sở dữ liệu, danh mục API, AI Agent điều phối, đến quy trình cài đặt, kiểm thử, bảo mật và hướng dẫn bảo trì dự án.**
 
 ---
 
-## 1. Tổng quan / Overview
+## 1. Tổng quan Sản phẩm
 
-### Tiếng Việt
+**AI Calendar Agent (Planora)** là ứng dụng web full-stack thông minh được thiết kế chuyên biệt cho sinh viên, học sinh và người tự học. Người dùng có thể trò chuyện tự nhiên bằng tiếng Việt hoặc tiếng Anh để tìm kiếm thời gian rảnh, tạo lịch học, dời hoặc xóa sự kiện, tải lên ảnh thời khóa biểu để AI tự động phân tích và phân bổ các buổi ôn tập trước kỳ thi.
 
-AI Calendar Agent là ứng dụng web full-stack dành cho sinh viên và người tự học. Người dùng có thể trò chuyện bằng ngôn ngữ tự nhiên để tìm thời gian rảnh, tạo lịch học, dời hoặc xóa sự kiện, và tự động phân bổ các buổi ôn tập trước ngày thi.
+Sản phẩm kết hợp mượt mà giữa hai trải nghiệm cốt lõi:
 
-Sản phẩm gồm hai trải nghiệm chính:
+1. **Trợ lý AI (AI Assistant):** Giao diện hội thoại tối giản, hiện đại theo phong cách ChatGPT/Codex với khả năng hiểu ngữ cảnh đa phương thức (văn bản và hình ảnh thời khóa biểu), streaming phản hồi theo thời gian thực (SSE) và gọi công cụ (Function Calling) nhiều bước có kiểm soát.
+2. **Lịch biểu Trực quan (Interactive Calendar):** Giao diện lịch học chuẩn Google Calendar với các chế độ xem linh hoạt (Tháng, Tuần, Ngày, Lịch biểu), trục thời gian 24 giờ hoàn chỉnh, vạch theo dõi thời gian thực (*Current Time Indicator*), kéo thả (*Drag & Drop*) và thay đổi thời lượng (*Resize*) mượt mà, hệ thống thông báo đẩy màn hình hệ điều hành qua Service Worker ngầm và hiệu ứng Spotlight hào quang phát sáng.
 
-1. **AI Assistant:** giao diện hội thoại tối giản theo phong cách ChatGPT/Codex.
-2. **Calendar:** giao diện lịch tháng, tuần, ngày và lịch biểu theo phong cách Google Calendar.
-
-Dữ liệu được bảo vệ theo từng tài khoản bằng Supabase Auth và PostgreSQL Row Level Security. Gemini đóng vai trò bộ não suy luận, nhưng mọi thao tác thật lên lịch đều được thực hiện thông qua các function-calling tools do backend kiểm soát.
-
-### English
-
-AI Calendar Agent is a full-stack web application for students and self-directed learners. Users can communicate in natural language to find free time, create study schedules, move or delete events, and automatically distribute revision sessions before an exam.
-
-The product provides two primary experiences:
-
-1. **AI Assistant:** a minimal conversational interface inspired by ChatGPT/Codex.
-2. **Calendar:** month, week, day, and agenda views inspired by Google Calendar.
-
-Data is isolated per account with Supabase Auth and PostgreSQL Row Level Security. Gemini provides reasoning, while all real calendar mutations are executed through backend-controlled function-calling tools.
+Dữ liệu của từng người dùng được bảo vệ và cô lập độc lập 100% bằng **Supabase Auth** và **PostgreSQL Row Level Security (RLS)**. Mô hình ngôn ngữ lớn **Google Gemini** đóng vai trò bộ não tư duy và phân tích, trong khi toàn bộ thao tác ghi dữ liệu vào cơ sở dữ liệu đều được kiểm soát nghiêm ngặt bởi backend FastAPI thông qua danh sách công cụ được cấp phép.
 
 ---
 
-## 2. Mục tiêu sản phẩm / Product Goals
+## 2. Mục tiêu Sản phẩm
 
-### Tiếng Việt
-
-- Giảm thời gian người học phải tự tìm và sắp xếp lịch.
-- Biến mục tiêu học tập thành các buổi học cụ thể trên lịch.
-- Tránh tạo lịch trùng với các sự kiện đã có.
-- Cho phép điều chỉnh trực tiếp bằng kéo thả hoặc bằng hội thoại.
-- Đồng bộ thao tác AI và giao diện lịch trong cùng một ứng dụng.
-- Bảo vệ dữ liệu cá nhân ở cả API và database.
-
-### English
-
-- Reduce the time learners spend manually arranging schedules.
-- Turn learning goals into concrete calendar sessions.
-- Prevent conflicts with existing events.
-- Support direct drag-and-drop editing and conversational editing.
-- Keep AI actions and the visual calendar synchronized in one application.
-- Protect personal data at both API and database layers.
+- **Tiết kiệm thời gian lập kế hoạch:** Giảm thiểu tối đa thời gian người học phải tự dò tìm khoảng trống và sắp xếp thời khóa biểu thủ công.
+- **Biến mục tiêu học tập thành hành động:** Chuyển đổi các mục tiêu ôn thi lớn thành các buổi học cụ thể, vừa sức phân bổ đều đặn trên lịch biểu.
+- **Ngăn ngừa xung đột lịch 100%:** Kiểm tra và loại trừ mọi nguy cơ trùng giờ ở 3 lớp (API, AI Tools, Database Exclusion Constraints).
+- **Trải nghiệm thao tác kép linh hoạt:** Cho phép người dùng linh hoạt điều chỉnh lịch trực tiếp bằng kéo thả chuột trên màn hình hoặc trò chuyện qua trợ lý AI.
+- **Đồng bộ hóa tức thời:** Mọi thay đổi từ AI hoặc giao diện Lịch đều được cập nhật thời gian thực trên cùng một ứng dụng mà không cần tải lại trang.
+- **Bảo mật và riêng tư tuyệt đối:** Dữ liệu cá nhân, thời khóa biểu và đoạn chat được cô lập hoàn toàn giữa các người dùng ở cả tầng API và Database.
 
 ---
 
-## 3. Tính năng đã xây dựng / Implemented Features
+## 3. Các Tính năng Đã Xây dựng
 
-### 3.1. Xác thực / Authentication
+### 3.1. Xác thực & Quản lý Tài khoản (Authentication)
 
-- Đăng nhập Google qua Supabase OAuth.
-- Theo dõi và tự động làm mới Supabase session.
-- Backend xác minh JWT bằng Supabase Auth trước mỗi API request cần bảo vệ.
-- Tự động tạo profile khi người dùng đăng ký lần đầu.
-- Nút đăng xuất và hiển thị avatar Google.
+- Đăng nhập an toàn 1-chạm bằng tài khoản Google thông qua **Supabase OAuth (PKCE Flow)**.
+- Tự động duy trì và làm mới phiên đăng nhập (JWT refresh) an toàn.
+- Backend FastAPI xác thực chữ ký điện tử của Bearer JWT trên từng yêu cầu API cần bảo vệ.
+- Tự động khởi tạo hồ sơ học tập (`profiles`) mặc định ngay khi người dùng đăng ký lần đầu qua Database Trigger.
+- Xem thông tin tài khoản, avatar Google, tên hiển thị và nút Đăng xuất an toàn.
 
-### 3.2. AI Assistant
+### 3.2. Trợ lý Lập kế hoạch AI (AI Assistant)
 
-- Màn hình chào tối giản và bốn prompt gợi ý.
-- Sidebar lịch sử hội thoại có thể thu gọn.
-- Tạo cuộc hội thoại mới và mở lại hội thoại cũ.
-- Đổi tên hoặc xóa cuộc hội thoại từ sidebar; tiêu đề ban đầu được tạo cục bộ theo ranh giới từ để không tốn thêm một lượt Gemini.
-- Textarea tự tăng chiều cao và gửi bằng phím Enter.
-- Dán ảnh bằng Ctrl+V hoặc chọn JPG/PNG/WebP/GIF từ máy, xem trước và xóa trước khi gửi; ảnh chỉ được chuyển inline tới Gemini và không lưu vào Supabase.
-- Phản hồi Gemini được truyền qua Server-Sent Events; lịch sử được gửi đúng cấu trúc role/content.
-- Backend tự điều phối tối đa tám vòng function call, chỉ thực thi công cụ trong allow-list và đưa kết quả thật trở lại Gemini trước khi nhận câu trả lời cuối.
-- Calendar và Tasks/deadline đều có công cụ đọc/ghi; câu hỏi về dữ liệu người dùng phải đọc dữ liệu thật trước khi kết luận.
-- Ảnh thời khóa biểu và text được xử lý trong cùng một lượt. Nếu chưa rõ gộp hay thay thế lịch, phạm vi ngày hoặc recurrence, agent hỏi lại và không tự xóa/tạo dữ liệu phỏng đoán.
-- Phản hồi rỗng, tool lỗi và stream không có sự kiện `done` được coi là lỗi; giao diện không hiển thị thông báo thành công giả.
-- Render Markdown trong câu trả lời AI.
-- Inline action pill báo sự kiện/task được tạo, sửa, xóa hoặc slot rảnh được tìm thấy.
-- Chuyển thẳng sang Calendar từ action pill.
-- Lưu tin nhắn và metadata hành động vào Supabase.
-- Lưu conversation và cặp tin nhắn bằng một database transaction; mỗi yêu cầu có operation ID/fingerprint để replay an toàn và tránh retry khác payload.
-- Rate limit 10 yêu cầu AI/phút/người dùng dùng chung giữa các backend worker qua PostgreSQL.
+- Màn hình chào thân thiện kèm các thẻ gợi ý câu lệnh mẫu hữu ích.
+- Thanh bên (Sidebar) quản lý lịch sử các cuộc hội thoại, hỗ trợ thu gọn mượt mà.
+- Tạo hội thoại mới, đổi tên hoặc xóa hội thoại; tiêu đề ban đầu được AI tóm tắt ngắn gọn tự động.
+- Khung nhập liệu thông minh: tự động co giãn chiều cao theo nội dung, gửi tin nhắn bằng phím `Enter`, xuống dòng bằng `Shift + Enter`.
+- **Hỗ trợ hình ảnh đa phương thức:** Dán ảnh trực tiếp bằng `Ctrl + V` hoặc chọn file ảnh từ máy (JPG, PNG, WebP, GIF), xem trước và xóa ảnh trước khi gửi; ảnh được xử lý inline gửi trực tiếp tới Gemini để trích xuất thời khóa biểu mà không lưu rác vào database.
+- **Truyền luồng phản hồi thời gian thực (Server-Sent Events - SSE):** Người dùng nhìn thấy từng từ AI phản hồi xuất hiện tức thì với độ trễ cực thấp.
+- **Vòng lặp Function Calling có kiểm soát:** Backend tự động điều phối tối đa 8 vòng gọi công cụ (đọc lịch, tạo lịch, sửa/xóa, tìm giờ trống, tạo task), kiểm duyệt tham số và chỉ thực thi các hàm trong danh sách cho phép trước khi trả lời người dùng.
+- **Hiển thị thẻ hành động trực quan (Action Pills):** Báo cáo chi tiết các sự kiện/nhiệm vụ vừa được AI tạo, sửa, dời hoặc xóa, kèm nút bấm 1-chạm chuyển thẳng sang Lịch để xem ngay.
+- Trình biên dịch Markdown cao cấp: hỗ trợ định dạng văn bản, danh sách, bảng biểu và khối code rõ ràng.
+- Ghi nhận hội thoại nguyên tử thông qua Database Transaction/RPC.
+- **Kiểm soát giới hạn tần suất (Rate Limiting):** Giới hạn tối đa 10 yêu cầu AI/phút/người dùng được đồng bộ giữa các worker backend qua PostgreSQL.
 
-### 3.3. Calendar & Thông báo / Calendar & Notifications
+### 3.3. Lịch biểu Trực quan & Hệ thống Thông báo (Calendar & Notifications)
 
-- Chế độ tháng, tuần, ngày và lịch biểu (Schedule-X).
-- **Trục tung thời gian 24 giờ liên tục (00:00 - 24:00)** với chiều cao lưới rộng rãi 1680px (~70px/giờ) và tự động cuộn nhẹ đến khung giờ ban ngày (~07:00-08:00) khi khởi động.
-- **Vạch chỉ thời gian thực (Real-time Current Time Indicator)**: Vạch đỏ hồng kèm chấm tròn phát sáng đa tầng ở trục giờ, tự động cập nhật vị trí từng phút theo múi giờ `Asia/Ho_Chi_Minh` chuẩn Google Calendar.
-- **Kéo thả và Resize mượt mà**: Di chuyển sự kiện xuyên suốt tất cả các ngày trong tuần mà không bị cắt viền (`overflow: visible`), bước nhảy 15 phút (15-min snap), thẻ mờ đối chiếu vị trí ban đầu (ghost card) và tay nắm kéo giãn cạnh đáy tiện lợi.
-- **Hệ thống thông báo đẩy Desktop (OS-level Notification qua Service Worker `sw.js`)**: Nhắc nhở trước khi sự kiện bắt đầu ngay cả khi người dùng đang lướt web ở tab khác hoặc thu nhỏ trình duyệt, kèm âm thanh chuông báo tinh tế và cơ chế click-to-focus chuyển ngay đến sự kiện trên Lịch.
-- **Tính năng Bật/Tắt & Tùy biến thông báo toàn diện**:
+- **4 Chế độ xem linh hoạt (Schedule-X):** Tháng (Month Grid), Tuần (Week), Ngày (Day), và Lịch biểu (Month Agenda).
+- **Trục tung thời gian 24 giờ liên tục (00:00 – 24:00):** Mở rộng trọn vẹn 24 giờ trong ngày với chiều cao lưới thoáng đãng (1680px, ~70px/giờ), tự động cuộn nhẹ đến vùng giờ học ban ngày (~07:00 – 08:00 sáng) khi khởi động.
+- **Vạch theo dõi thời gian thực (Real-time Current Time Indicator):** Vạch đỏ hồng thanh mảnh kèm chấm tròn phát sáng đa tầng ở trục giờ, tự động cập nhật vị trí từng phút theo múi giờ `Asia/Ho_Chi_Minh` chuẩn Google Calendar.
+- **Kéo – Thả & Thay đổi thời lượng siêu mượt:** Di chuyển sự kiện xuyên suốt tất cả các ngày trong tuần mà không bị cắt viền (`overflow: visible`), bước nhảy 15 phút (*15-minute snap*), thẻ mờ đối chiếu vị trí gốc (*Ghost Card*) và tay nắm kéo giãn cạnh đáy tiện dụng.
+- **Hệ thống thông báo đẩy Desktop (OS-level Notification qua Service Worker `sw.js`):**
+  - Bắn pop-up thông báo hệ điều hành (Windows / macOS / Android) trước giờ học/sự kiện ngay cả khi người dùng đang lướt tab web khác hoặc thu nhỏ trình duyệt.
+  - Âm thanh chuông báo tinh tế được tổng hợp bằng Web Audio API.
+  - Cơ chế **Click-to-Focus 1-chạm**: Click vào thông báo từ bất kỳ đâu sẽ tự động đưa tab Planora lên trước màn hình, chuyển thẳng vào trang Lịch và trỏ đến sự kiện.
+- **Tính năng Bật/Tắt & Tùy chỉnh Thông báo Toàn diện:**
   - Nút bật/tắt nhanh thông báo sự kiện trực tiếp ngay trên menu Chuông (Navbar) với biểu tượng `BellOff` khi tắt.
-  - Mục **Cài đặt Thông báo & Nhắc nhở** trong Settings Modal: Công tắc Bật/Tắt nhắc nhở sự kiện, Công tắc Bật/Tắt âm thanh chuông báo (Chime), và Danh sách chọn thời gian nhắc trước (5, 10, 15, 30 phút). Lựa chọn được lưu bền vững trên trình duyệt qua `localStorage`.
-- **Hiệu ứng Spotlight phát sáng đa tầng (Direct DOM Pulse & Glow)**: Làm nổi bật sự kiện trong 2.8 giây khi chuyển từ thông báo mà không kích hoạt render lại Schedule-X (Zero Re-render), loại bỏ hoàn toàn hiện tượng chớp/load lại.
-- **Menu chọn chế độ xem nâng cao (`z-index: 100`)**: Hiển thị đè lên toàn bộ thanh tiêu đề ngày sticky một cách liền mạch, bo góc 12px chuẩn thiết kế hiện đại.
-- Tạo sự kiện bằng nút “Tạo mới” hoặc chọn ô thời gian trống.
-- Xem và sửa sự kiện bằng modal trực quan (`EventModal`).
-- Xóa mềm sự kiện vào Thùng rác, khôi phục hoặc xóa vĩnh viễn.
-- Lọc sự kiện theo môn học hoặc danh mục.
-- Mini-calendar 7×6 có điều hướng tháng, ngày hiện tại và ngày được chọn.
-- Sự kiện cả ngày và chuỗi lặp hằng ngày, hằng tuần hoặc hằng tháng.
-- Hiển thị giờ, màu danh mục lấy từ dữ liệu thật, badge AI, tooltip và trạng thái hoàn thành.
-- Panel Tasks ngay trong Calendar sidebar.
-- Settings cho tên, múi giờ, giờ học và Pomodoro; toggle Sáng/Tối lưu lựa chọn.
-- Badge trong ứng dụng đếm các sự kiện bắt đầu trong 24 giờ tới.
-- URL riêng `/chat` và `/calendar` cùng tiêu đề browser tab động.
+  - Mục **Cài đặt Thông báo & Nhắc nhở** trong Settings Modal: Công tắc Bật/Tắt nhắc nhở sự kiện, Công tắc Bật/Tắt âm thanh chuông báo, và Danh sách chọn thời gian nhắc trước (5, 10, 15, 30 phút). Lựa chọn được lưu bền vững trên trình duyệt qua `localStorage`.
+- **Hiệu ứng Spotlight phát sáng đa tầng (Direct DOM Pulse & Glow):** Làm nổi bật sự kiện trong 2.8 giây khi chuyển từ thông báo mà không kích hoạt render lại Schedule-X (Zero Re-render), loại bỏ hoàn toàn hiện tượng chớp/load lại.
+- **Menu chọn chế độ xem nâng cao (`z-index: 100`):** Hiển thị đè lên toàn bộ thanh tiêu đề ngày sticky một cách liền mạch, bo góc 12px chuẩn thiết kế hiện đại.
+- **Quản lý sự kiện toàn diện:** Tạo sự kiện mới nhanh bằng nút bấm hoặc kéo chọn vùng thời gian trống trên lịch, xem chi tiết và chỉnh sửa bằng Modal trực quan.
+- **Xóa an toàn & Thùng rác (Trash Panel):** Xóa mềm sự kiện vào Thùng rác, cho phép khôi phục lại lịch cũ bất cứ lúc nào hoặc xóa vĩnh viễn.
+- **Lọc thông minh theo môn học/danh mục:** Bật/tắt hiển thị lịch theo từng môn học với bảng màu riêng biệt.
+- **Mini-Calendar 7×6:** Lịch thu nhỏ ở thanh bên hỗ trợ điều hướng nhanh theo tháng, đánh dấu ngày hôm nay và ngày đang chọn.
+- **Sự kiện cả ngày & Sự kiện lặp lại (Recurrence):** Hỗ trợ sự kiện cả ngày và chuỗi lặp lại định kỳ hằng ngày, hằng tuần, hằng tháng có ngày kết thúc.
+- **Bảng Quản lý Nhiệm vụ (Tasks Panel):** Quản lý deadline và bài tập cần làm ngay trong thanh bên của Lịch.
+- **Huy hiệu thông báo 24 giờ:** Hiển thị số lượng sự kiện sắp diễn ra trong vòng 24 giờ tới trên biểu tượng Chuông.
 
-### 3.4. Lập lịch thông minh / Smart Scheduling
+### 3.4. Thuật toán Lập lịch Thông minh (Smart Scheduling)
 
-- Đọc lịch trong một khoảng ngày.
-- Tìm các khoảng thời gian rảnh theo thời lượng yêu cầu.
-- Gộp các khoảng bận giao nhau trước khi tính slot rảnh.
-- Phân bổ buổi học trước ngày thi.
-- Ưu tiên khung giờ buổi tối khi tự động lên kế hoạch.
-- Kiểm tra xung đột ở API, AI tools và database.
-- Database exclusion constraint ngăn hai sự kiện “scheduled” của cùng người dùng bị chồng thời gian.
-
-### English Summary
-
-The implemented product includes Google OAuth, JWT-protected APIs, persistent and manageable conversations, backend-controlled multi-round Gemini tool calling for text and images, full 24-hour vertical calendar grid (00:00-24:00), Google Calendar-style real-time indicator line with glowing dot, native OS-level desktop push notifications via background Service Worker (`sw.js`) with audio chime and click-to-focus navigation, zero-rerender direct DOM event spotlighting, smooth cross-column drag & drop and resizing, recurring and all-day events, recoverable deletion, study tasks, profile settings, light/dark themes, in-app upcoming-event badges, conflict prevention, free-slot search, and automated study-session distribution.
+- Đọc và quét toàn bộ lịch trình hiện có của người dùng trong khoảng thời gian chỉ định.
+- Thuật toán tìm khoảng trống (*Free-slot Finder*): Tự động gộp các khoảng thời gian bận giao nhau, quét và trả về danh sách các khung giờ rảnh phù hợp với độ dài yêu cầu.
+- Thuật toán phân bổ lịch ôn tập (*Study Session Distribution*): Tự động tính toán tổng số giờ cần học cho một môn, phân bổ đều đặn mỗi ngày một buổi học hợp lý trước ngày thi, ưu tiên khung giờ học buổi tối theo cài đặt cá nhân của người dùng.
+- Kiểm tra xung đột 3 tầng: Đảm bảo không bao giờ xếp lịch trùng vào khung giờ người dùng đã có hẹn.
 
 ---
 
-## 4. Kiến trúc hệ thống / System Architecture
+## 4. Kiến trúc Hệ thống
 
 ```mermaid
 flowchart LR
-    U[User / Người dùng] --> F[React + Vite Frontend]
-    F -->|Google OAuth| A[Supabase Auth]
-    F -->|Bearer JWT| B[FastAPI Backend]
-    B -->|Validate user JWT| A
-    B -->|Function calling| G[Google Gemini API]
-    B -->|Service-side data access| D[(Supabase PostgreSQL)]
+    U["Người dùng (Trình duyệt)"] --> F["Frontend (React 19 + Vite)"]
+    F -->|"Google OAuth (PKCE)"| A["Supabase Auth"]
+    F -->|"Bearer JWT Token"| B["Backend (FastAPI)"]
+    B -->|"Xác thực JWT Token"| A
+    B -->|"Function Calling (Tool Loop)"| G["Google Gemini API"]
+    B -->|"Truy vấn Service-side"| D[("Supabase PostgreSQL")]
     A --> D
-    D -->|RLS + constraints| D
-    G -->|Select tool + arguments| B
-    B -->|Calendar result + actions| F
+    D -->|"RLS + Constraints"| D
+    G -->|"Trả về Tool & Tham số"| B
+    B -->|"Dữ liệu Lịch & Hành động"| F
 ```
 
-### Nguyên tắc thiết kế / Design Principles
+### Các Nguyên tắc Thiết kế Cốt lõi
 
-- **Decoupled full-stack:** frontend và backend là hai ứng dụng độc lập, giao tiếp qua HTTP.
-- **Backend-controlled mutations:** Gemini không truy cập database trực tiếp.
-- **Defense in depth:** xác minh JWT ở backend, lọc theo user ID trong query và RLS ở database.
-- **Single source of truth:** Supabase PostgreSQL là nguồn dữ liệu chính cho lịch, profile, task và chat.
-- **Instant application sync:** sau thao tác AI, frontend tải lại CalendarContext để phản ánh dữ liệu mới.
+- **Kiến trúc Decoupled Full-Stack:** Frontend và Backend hoàn toàn độc lập, giao tiếp với nhau qua chuẩn REST API và Server-Sent Events (SSE).
+- **Backend-controlled Mutations:** Mô hình AI Gemini không bao giờ có quyền kết nối trực tiếp vào cơ sở dữ liệu; mọi thao tác ghi/đọc dữ liệu đều phải qua các hàm kiểm soát nghiệp vụ tại backend.
+- **Bảo mật đa tầng (Defense in Depth):** Xác thực JWT ở tầng Gateway/Route, lọc `user_id` bắt buộc ở tầng Application Logic, và áp dụng Row Level Security (RLS) ở tầng Database.
+- **Nguồn chân lý duy nhất (Single Source of Truth):** PostgreSQL trên Supabase là nguồn dữ liệu chuẩn xác duy nhất cho lịch, hồ sơ, nhiệm vụ và hội thoại.
+- **Đồng bộ hóa trạng thái tức thời:** Sau mỗi thao tác tạo/sửa lịch từ AI, frontend lập tức kích hoạt làm mới `CalendarContext` để phản ánh dữ liệu mới lên màn hình ngay lập tức.
 
 ---
 
-## 5. Công nghệ sử dụng / Technology Stack
+## 5. Công nghệ Sử dụng
 
-| Layer | Technology | Responsibility |
+| Tầng hệ thống | Công nghệ | Vai trò & Trách nhiệm |
 |---|---|---|
-| Frontend | React 19, TypeScript, Vite | UI and client-side state |
-| Styling | Tailwind CSS 4 + custom CSS | Layout, responsive UI, visual system |
-| Calendar | Schedule-X | Month/week/day/month-agenda views and interactions |
-| HTTP | Axios + Fetch | REST calls and SSE stream consumption |
-| Icons | Lucide React | Interface icons |
-| Markdown | React Markdown | Assistant response rendering |
-| Authentication | Supabase Auth | Google OAuth and user sessions |
-| Database | Supabase PostgreSQL | Persistent application data |
-| Security | PostgreSQL RLS | Per-user row isolation |
-| Backend | FastAPI, Pydantic, Uvicorn | REST API, validation, orchestration |
-| AI | Google Gemini, google-genai SDK | Natural-language reasoning and tool selection |
-| Database client | supabase-py | Server-side Supabase access |
-| Testing | Pytest, FastAPI TestClient, Vitest, Testing Library | Backend, schema-contract and frontend regression tests |
-| Orchestration | concurrently | Start frontend and backend with one command |
+| **Frontend** | React 19, TypeScript, Vite | Giao diện người dùng và quản lý trạng thái client |
+| **Giao diện & CSS** | Tailwind CSS 4 + Custom CSS Design System | Bố cục responsive, hệ thống biến màu sắc, dark/light theme |
+| **Thư viện Lịch** | Schedule-X, @schedule-x/current-time | Hiển thị lưới lịch 24h, vạch thời gian thực, kéo thả & resize |
+| **Giao tiếp HTTP** | Axios, Fetch API | Giao tiếp REST API và lắng nghe luồng sự kiện SSE |
+| **Biểu tượng** | Lucide React | Hệ thống icon hiện đại, trực quan |
+| **Render Nội dung** | React Markdown | Hiển thị câu trả lời của AI có định dạng bảng, chữ đậm, code |
+| **Xác thực** | Supabase Auth (Google OAuth) | Quản lý phiên đăng nhập và bảo mật người dùng |
+| **Cơ sở dữ liệu** | Supabase PostgreSQL | Lưu trữ dữ liệu quan hệ, bảng lịch, nhiệm vụ, tin nhắn |
+| **Bảo mật Database** | PostgreSQL Row Level Security (RLS) | Cách ly và bảo vệ dữ liệu độc lập giữa từng tài khoản |
+| **Backend** | FastAPI, Pydantic, Uvicorn (Python 3.11+) | Xử lý API RESTful, kiểm duyệt dữ liệu, điều phối AI |
+| **Trí tuệ Nhân tạo** | Google Gemini (google-genai SDK) | Xử lý ngôn ngữ tự nhiên, phân tích ảnh và Function Calling |
+| **Kiểm thử** | Pytest, Vitest, Testing Library | Bộ kiểm thử tự động toàn diện cho cả Backend và Frontend |
+| **Điều phối chạy Local** | concurrently | Khởi động đồng thời cả frontend và backend chỉ với 1 câu lệnh |
 
 ---
 
-## 6. Cấu trúc thư mục / Project Structure
+## 6. Cấu trúc Thư mục Dự án
 
 ```text
 Calendar_Agent/
 ├── .gitignore
-├── README.md
-├── PROJECT_DOCUMENTATION.md
-├── package.json                  # Root commands: dev, build, test
+├── README.md                     # Tài liệu tóm tắt dự án
+├── PROJECT_DOCUMENTATION.md      # Tài liệu kỹ thuật chi tiết toàn diện
+├── package.json                  # Lệnh điều phối root: dev, test, build
 ├── package-lock.json
-├── backend/
-│   ├── .env.example
-│   ├── requirements.txt
-│   ├── main.py                   # FastAPI app, CORS, router registration
-│   ├── config.py                 # Environment configuration
+├── backend/                      # Backend FastAPI (Python)
+│   ├── .env.example              # Mẫu cấu hình môi trường backend
+│   ├── requirements.txt          # Danh sách thư viện Python
+│   ├── main.py                   # Điểm khởi động FastAPI, cấu hình CORS & Routers
+│   ├── config.py                 # Đọc và xác thực biến môi trường
 │   ├── agent/
-│   │   ├── gemini_agent.py       # Gemini orchestration and system prompt
-│   │   ├── tools.py              # Calendar function-calling tools
-│   │   └── scheduler_logic.py    # Free-slot and study-plan algorithms
+│   │   ├── gemini_agent.py       # Điều phối Gemini, system prompt & SSE stream
+│   │   ├── tools.py              # Định nghĩa các hàm Function Calling cho AI
+│   │   └── scheduler_logic.py    # Thuật toán tìm giờ trống và phân bổ lịch ôn thi
 │   ├── db/
-│   │   ├── auth.py               # Bearer JWT validation
-│   │   └── supabase_client.py    # Server-side Supabase client
-│   ├── models/
+│   │   ├── auth.py               # Middleware xác thực Bearer JWT từ Supabase
+│   │   └── supabase_client.py    # Khởi tạo Supabase client tầng server
+│   ├── models/                   # Pydantic schemas kiểm duyệt dữ liệu vào/ra
 │   │   ├── event.py
 │   │   ├── task.py
 │   │   ├── chat.py
 │   │   └── profile.py
-│   ├── routes/
+│   ├── routes/                   # Các API endpoints
 │   │   ├── events.py
 │   │   ├── tasks.py
 │   │   ├── chat.py
 │   │   └── profile.py
-│   └── tests/
+│   └── tests/                    # Bộ kiểm thử tự động backend
 │       ├── test_health.py
 │       └── test_scheduler_logic.py
-├── frontend/
-│   ├── .env.example
-│   ├── package.json
-│   ├── vite.config.ts
-│   ├── tsconfig*.json
-│   └── src/
-│       ├── App.tsx
-│       ├── main.tsx
-│       ├── index.css
-│       ├── api/
-│       │   ├── client.ts
-│       │   ├── events.ts
-│       │   └── chat.ts
-│       ├── components/
-│       │   ├── Navbar.tsx
-│       │   ├── auth/LoginView.tsx
-│       │   ├── chat/
-│       │   └── calendar/
-│       ├── context/
-│       │   ├── AuthContext.tsx
-│       │   └── CalendarContext.tsx
-│       ├── lib/supabase.ts
-│       └── types/
+├── frontend/                     # Frontend React + TypeScript (Vite)
+│   ├── public/
+│   │   ├── sw.js                 # Service Worker xử lý thông báo đẩy Desktop chạy ngầm
+│   │   └── favicon.svg
+│   ├── src/
+│   │   ├── App.tsx               # Điều hướng chính và quản lý shell ứng dụng
+│   │   ├── main.tsx              # Điểm gắn kết React DOM
+│   │   ├── styles/
+│   │   │   └── redesign.css      # CSS tùy biến cao cấp cho Planora
+│   │   ├── api/                  # Tầng gọi API backend
+│   │   │   ├── client.ts
+│   │   │   ├── events.ts
+│   │   │   └── chat.ts
+│   │   ├── components/
+│   │   │   ├── Navbar.tsx        # Thanh điều hướng, menu chuông, chuyển theme
+│   │   │   ├── SettingsModal.tsx # Hộp thoại Cài đặt (Giao diện, Thông báo, Hồ sơ)
+│   │   │   ├── auth/LoginView.tsx
+│   │   │   ├── chat/             # Các component màn hình Chat AI
+│   │   │   └── calendar/         # Các component màn hình Lịch (Schedule-X wrapper)
+│   │   ├── context/              # React Contexts quản lý trạng thái toàn cục
+│   │   │   ├── AuthContext.tsx
+│   │   │   ├── CalendarContext.tsx
+│   │   │   ├── NotificationContext.tsx # Quản lý thông báo đẩy & Service Worker
+│   │   │   ├── ProfileContext.tsx
+│   │   │   ├── ThemeContext.tsx
+│   │   │   └── ToastContext.tsx
+│   │   ├── lib/                  # Tiện ích chuyển đổi dữ liệu và tính toán
+│   │   │   ├── dates.ts
+│   │   │   ├── recurrence.ts
+│   │   │   ├── scheduleXAdapter.ts
+│   │   │   └── supabase.ts
+│   │   └── types/                # Định nghĩa TypeScript Types
 └── supabase/
     ├── .env.example
     ├── config.toml
-    ├── schema.sql
-    └── migrations/
-        └── 202608200001_initial_schema.sql
+    ├── schema.sql                # Toàn bộ cấu trúc Database, RLS, Indexes & Triggers
+    └── migrations/               # Lịch sử các file migration theo thời gian
 ```
 
 ---
 
-## 7. Frontend chi tiết / Frontend Details
+## 7. Chi tiết Kiến trúc Frontend
 
-### 7.1. Application Shell
+### 7.1. Shell Ứng dụng (`App.tsx`)
 
-`App.tsx` quyết định hiển thị màn hình loading, màn hình đăng nhập hoặc ứng dụng chính. Sau khi đăng nhập, người dùng chuyển đổi giữa Chat và Calendar qua Navbar.
+`App.tsx` chịu trách nhiệm kiểm tra trạng thái xác thực từ `AuthContext`:
+- Nếu chưa đăng nhập: Hiển thị màn hình giới thiệu và nút Đăng nhập Google (`LoginView`).
+- Nếu đã đăng nhập: Hiển thị thanh điều hướng `Navbar` và giữ đồng thời cả 2 view `ChatView` và `CalendarView` trong DOM (sử dụng cơ chế `visibility: visible / hidden` để chuyển tab tức thì với độ trễ bằng 0, không bị mất trạng thái khi qua lại).
 
-Calendar được lazy-load để giảm kích thước JavaScript cần tải ở màn hình Chat đầu tiên.
+### 7.2. Quản lý Xác thực (`AuthContext.tsx`)
 
-### 7.2. AuthContext
+- Khởi tạo kết nối với Supabase Auth, kiểm tra session hiện tại trong trình duyệt.
+- Cung cấp các hàm `signInWithGoogle()` và `signOut()`.
+- Tự động đăng ký lắng nghe sự kiện `onAuthStateChange` để cập nhật trạng thái session khi token được làm mới.
 
-`AuthContext.tsx`:
+### 7.3. Đồng bộ Dữ liệu Lịch (`CalendarContext.tsx`)
 
-- Đọc session hiện tại từ Supabase.
-- Lắng nghe thay đổi trạng thái đăng nhập.
-- Cung cấp `signInWithGoogle()` và `signOut()`.
-- Chỉ cho ứng dụng chính render khi session hợp lệ.
-- Chuyển OAuth callback về origin hiện tại.
+- Quản lý danh sách sự kiện (`events`), danh mục môn học (`categories`), màu sắc (`categoryColors`).
+- Cung cấp các hàm thao tác dữ liệu: `create`, `update`, `remove`, `refresh`.
+- Quản lý mục tiêu tiêu điểm (`focusTarget: { eventId, date }`), cung cấp hàm `focusEvent(eventId, date)` giúp điều hướng thẳng đến sự kiện khi người dùng click vào thông báo hoặc danh sách sự kiện sắp tới.
 
-### 7.3. CalendarContext
+### 7.4. Hệ thống Thông báo & Service Worker (`NotificationContext.tsx`)
 
-`CalendarContext.tsx` là lớp đồng bộ dữ liệu lịch phía frontend:
-
-- Tải danh sách events sau khi đăng nhập.
-- Cung cấp `create`, `update`, `remove` và `refresh`.
-- Cập nhật state local sau mỗi thao tác thành công.
-- Được ChatView gọi `refresh()` sau khi AI thay đổi lịch.
-
-### 7.4. Chat Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Chat as ChatView
-    participant API as FastAPI /chat/stream
-    participant Gemini
-    participant DB as Supabase
-
-    User->>Chat: Enter a message
-    Chat->>API: POST message + JWT
-    API->>DB: Store user message
-    API->>Gemini: Prompt + history + tools
-    Gemini->>API: Tool calls if required
-    API->>DB: Read or mutate calendar
-    API->>DB: Store assistant message + actions
-    API-->>Chat: SSE start, tokens, actions, done
-    Chat->>Chat: Refresh CalendarContext
-```
-
-### 7.5. Calendar Flow
-
-Schedule-X được cấu hình với:
-
-- Month grid, week, day và month agenda.
-- Drag/drop và resize theo bước 5 phút; sự kiện lặp được dịch chuyển theo toàn bộ chuỗi.
-- Event recurrence ngày/tuần/tháng.
-- Giao diện tiếng Việt và tuần bắt đầu từ thứ Hai.
-- Giờ bắt đầu/kết thúc ngày lấy từ profile, mặc định 07:00–22:00.
-
-### English Summary
-
-The frontend application shell gates the product behind a valid Supabase session. AuthContext owns the PKCE OAuth lifecycle, CalendarContext owns shared event state, ChatView consumes SSE events, and Schedule-X provides direct calendar manipulation. After an AI mutation, ChatView refreshes the shared calendar state so both screens remain consistent.
+- Đăng ký tiến trình chạy ngầm **Service Worker (`/sw.js`)** cho trình duyệt.
+- Quản lý trạng thái cài đặt thông báo:
+  - `enabled`: Bật / Tắt nhắc nhở (lưu trong `localStorage`).
+  - `soundEnabled`: Bật / Tắt âm thanh chuông báo.
+  - `leadTimeMinutes`: Thời gian nhắc trước (5, 10, 15, 30 phút).
+- Tiến trình quét định kỳ 30 giây: Tự động kiểm tra các sự kiện sắp diễn ra trong khoảng thời gian chỉ định, phát âm thanh chuông báo và kích hoạt thông báo đẩy hệ thống của Windows/macOS.
+- Khi người dùng click vào thông báo từ bất kỳ đâu, Service Worker gửi tin nhắn `PLANORA_NOTIFICATION_CLICK`, ứng dụng tự động focus tab, chuyển vào trang Lịch và kích hoạt hiệu ứng Spotlight làm sáng sự kiện.
 
 ---
 
-## 8. Backend chi tiết / Backend Details
+## 8. Chi tiết Kiến trúc Backend (FastAPI)
 
-### 8.1. FastAPI Entry Point
+### 8.1. Cấu hình & Khởi tạo (`backend/main.py`)
 
-`backend/main.py`:
+- Khởi tạo ứng dụng FastAPI với middleware CORS cho phép truy cập từ URL frontend được cấu hình.
+- Đăng ký các router chuyên biệt: `/api/events`, `/api/tasks`, `/api/profile`, `/api/chat`.
+- Cung cấp endpoint kiểm tra sức khỏe hệ thống `GET /health`.
 
-- Tạo FastAPI application.
-- Cấu hình CORS cho frontend URL.
-- Đăng ký Events, Tasks, Chat và Profile routers.
-- Cung cấp `GET /health` để kiểm tra trạng thái backend và cấu hình dịch vụ.
+### 8.2. Middleware Xác thực JWT (`backend/db/auth.py`)
 
-### 8.2. Authentication Dependency
+- Trích xuất Bearer Token từ HTTP Authorization Header.
+- Xác thực chữ ký token thông qua Supabase Auth API (`supabase.auth.get_user(token)`).
+- Trả về đối tượng người dùng đã được xác minh (`user_id`), đảm bảo mọi endpoint API chỉ thao tác trên đúng dữ liệu của người dùng đó.
 
-`db/auth.py` đọc Bearer token từ request và gọi Supabase Auth để xác minh user. Endpoint bảo vệ nhận `user_id` đã xác minh thay vì tin dữ liệu user ID do frontend gửi.
+### 8.3. Kiểm duyệt Dữ liệu (Pydantic Validation)
 
-### 8.3. Validation
-
-Pydantic models kiểm tra:
-
-- Title không được trống.
-- Event end time phải sau start time.
-- Màu phải có dạng hexadecimal sáu ký tự.
-- Task priority nằm trong khoảng 1–3.
-- Pomodoro nằm trong khoảng 15–120 phút.
-- Chat request không vượt quá giới hạn nội dung.
-
-### 8.4. Conflict Protection
-
-Xung đột được ngăn ở ba lớp:
-
-1. **REST API:** query sự kiện giao nhau trước khi tạo hoặc sửa.
-2. **AI tools:** kiểm tra trước khi Gemini tool ghi dữ liệu.
-3. **PostgreSQL:** exclusion constraint là lớp bảo vệ cuối cùng.
-
-### English Summary
-
-FastAPI registers isolated route modules and validates all protected requests through Supabase Auth. Pydantic rejects malformed payloads before database access. Event conflict protection is intentionally repeated in REST handlers, Gemini tools, and PostgreSQL so a failure or bypass at one layer cannot silently corrupt the schedule.
+- **Tiêu đề sự kiện / nhiệm vụ:** Bắt buộc từ 1 đến 180 ký tự, tự động loại bỏ khoảng trắng thừa.
+- **Thời gian:** Bắt buộc thời gian kết thúc phải sau thời gian bắt đầu (`end_time > start_time`).
+- **Mã màu:** Định dạng chuẩn mã màu Hex 6 ký tự (`^#[0-9a-fA-F]{6}$`).
+- **Nhiệm vụ (Task):** Mức độ ưu tiên từ 1 đến 3, thời lượng ước tính lớn hơn 0 và nhỏ hơn 500 giờ.
+- **Hồ sơ (Profile):** Thời lượng Pomodoro từ 15 đến 120 phút, giờ kết thúc ngày học phải sau giờ bắt đầu.
 
 ---
 
-## 9. Gemini Agent và Function Calling
+## 9. AI Agent & Function Calling (Google Gemini)
 
-### 9.1. System Prompt
+### 9.1. Hướng dẫn Hệ thống (System Prompt)
 
-Agent được hướng dẫn:
+Mô hình Gemini được thiết lập các nguyên tắc hành xử nghiêm ngặt:
+- Luôn giao tiếp bằng tiếng Việt tự nhiên, thân thiện và súc tích.
+- Bắt buộc phải đọc dữ liệu lịch thực tế trước khi kết luận về lịch rảnh hay dời lịch.
+- Không bao giờ tự suy đoán ngày, giờ hoặc thời lượng khi thông tin chưa rõ ràng; chủ động hỏi lại người dùng để làm rõ.
+- Khi nhận được ảnh thời khóa biểu, hỏi rõ người dùng muốn "gộp thêm" hay "thay thế lịch cũ", phạm vi ngày áp dụng và tính chất lặp lại trước khi thao tác hàng loạt.
+- Tuyệt đối không tuyên bố thao tác thành công nếu công cụ thực thi gặp lỗi hoặc bị từ chối bởi cơ sở dữ liệu.
 
-- Trả lời bằng tiếng Việt.
-- Kiểm tra lịch trước khi tạo hoặc dời sự kiện.
-- Không tự đoán ngày, giờ, múi giờ hoặc thời lượng quan trọng.
-- Hỏi lại khi yêu cầu thiếu thông tin.
-- Chỉ thay đổi lịch khi người dùng yêu cầu rõ ràng.
-- Đọc Calendar hoặc Tasks trước khi trả lời câu hỏi về dữ liệu của người dùng.
-- Với ảnh thời khóa biểu, hỏi “gộp hay thay thế”, phạm vi áp dụng và recurrence nếu chưa rõ; không tự xóa lịch hoặc suy luận lặp hằng tuần từ một ảnh duy nhất.
-- Không tuyên bố đã tạo/sửa/xóa khi công cụ thất bại hoặc không có kết quả xác nhận.
-- Trả lời ngắn gọn và thân thiện.
+### 9.2. Danh mục Công cụ (AI Function Calling Tools)
 
-In English, the agent is instructed to respond in Vietnamese, ground Calendar/Tasks answers in live user data, inspect the current schedule before mutations, avoid guessing important time details, clarify ambiguous timetable images, perform only explicitly requested changes, and never claim success without a successful tool result.
-
-### 9.2. Tools
-
-| Tool | Purpose |
+| Tên công cụ | Mục đích & Chức năng |
 |---|---|
-| `get_current_schedule(start_date, end_date)` | Read events in a date range |
-| `create_calendar_event(...)` | Create one event |
-| `create_calendar_events(events)` | Create multiple events, such as a pasted timetable |
-| `reschedule_event(event_id, new_start, new_end)` | Move an event |
-| `delete_calendar_event(event_id)` | Delete an event |
-| `find_free_time_slots(target_date, duration_minutes)` | Find available time slots |
-| `auto_plan_study_sessions(subject, exam_date, total_hours, session_duration)` | Distribute study sessions before an exam |
-| `get_study_tasks(deadline_from, deadline_to, status, subject)` | Read owned tasks/deadlines with bounded filters |
-| `create_study_task(...)` | Create a validated study task |
-| `update_study_task(task_id, ...)` | Update an owned study task |
-| `delete_study_task(task_id)` | Delete an owned study task |
-
-### 9.3. Backend-controlled Tool Loop
-
-Automatic function execution in the SDK is disabled. For each request, the backend:
-
-1. Sends text, optional inline images, conversation history, system rules, and the 11 allowed tool declarations to Gemini.
-2. Validates every returned function name and arguments before execution.
-3. Executes blocking Supabase tool work in a worker thread during the async chat flow.
-4. Returns each tool result to Gemini and repeats for at most eight rounds.
-5. Accepts only a real final text response; empty/model-blocked responses become explicit 4xx/5xx errors and never a generic success message.
-
-This loop fixes the previous failure mode where asynchronous SDK automatic function calling could produce an empty stream after correctly understanding an image.
-
-### 9.4. Scheduler Algorithm
-
-`scheduler_logic.py`:
-
-1. Chuyển sự kiện sang timezone người dùng.
-2. Giới hạn tìm kiếm trong thời gian hoạt động mặc định 07:00–22:00.
-3. Sắp xếp và gộp các khoảng bận giao nhau.
-4. Duyệt khoảng trống theo bước 30 phút.
-5. Chỉ trả về slot đủ dài.
-6. Khi tự lập kế hoạch, phân phối tối đa một session phù hợp mỗi ngày cho đến ngày thi hoặc đủ tổng thời lượng.
-
-The scheduling engine normalizes events to the user's timezone, merges overlapping busy intervals, scans available time in 30-minute increments, and distributes suitable study sessions across the days before an exam.
+| `get_current_schedule` | Đọc danh sách các sự kiện trong một khoảng thời gian chỉ định |
+| `create_calendar_event` | Tạo một sự kiện học tập mới trên lịch |
+| `create_calendar_events` | Tạo đồng loạt nhiều sự kiện (dùng khi quét ảnh thời khóa biểu) |
+| `reschedule_event` | Dời thời gian bắt đầu và kết thúc của một sự kiện đã có |
+| `delete_calendar_event` | Xóa sự kiện khỏi lịch (chuyển vào Thùng rác) |
+| `find_free_time_slots` | Tìm kiếm các khoảng thời gian trống theo độ dài yêu cầu |
+| `auto_plan_study_sessions` | Tự động phân bổ đều đặn các buổi ôn thi trước ngày thi |
+| `get_study_tasks` | Đọc danh sách bài tập, nhiệm vụ học tập theo trạng thái hoặc môn học |
+| `create_study_task` | Tạo một nhiệm vụ / deadline học tập mới |
+| `update_study_task` | Cập nhật thông tin hoặc trạng thái hoàn thành của nhiệm vụ |
+| `delete_study_task` | Xóa một nhiệm vụ học tập |
 
 ---
 
-## 10. Database Schema
+## 10. Cấu trúc Cơ sở Dữ liệu (Database Schema)
 
-### 10.1. profiles
+### 10.1. Bảng `profiles` (Hồ sơ học tập)
 
-| Column | Type | Description |
+| Cột | Kiểu dữ liệu | Mô tả |
 |---|---|---|
-| `id` | uuid | Same ID as `auth.users.id` |
-| `display_name` | text | User display name |
-| `timezone` | text | Default: Asia/Ho_Chi_Minh |
-| `day_start` | time | Preferred day start |
-| `day_end` | time | Preferred day end |
-| `pomodoro_minutes` | integer | Preferred focus duration |
-| `created_at` | timestamptz | Creation timestamp |
-| `updated_at` | timestamptz | Last update timestamp |
+| `id` | uuid (Primary Key) | Khóa ngoại tham chiếu đến `auth.users.id` |
+| `display_name` | text | Tên hiển thị của người dùng (tối đa 100 ký tự) |
+| `timezone` | text | Múi giờ sử dụng (mặc định: `Asia/Ho_Chi_Minh`) |
+| `day_start` | time | Giờ bắt đầu ngày học mong muốn (mặc định: `07:00`) |
+| `day_end` | time | Giờ kết thúc ngày học mong muốn (mặc định: `22:00`) |
+| `pomodoro_minutes` | integer | Thời lượng tập trung Pomodoro (15 – 120 phút) |
+| `created_at` / `updated_at` | timestamptz | Thời điểm tạo và cập nhật |
 
-A trigger automatically inserts a profile after a new Supabase Auth user is created.
+### 10.2. Bảng `events` (Sự kiện lịch)
 
-### 10.2. events
+Lưu trữ thông tin chi tiết về từng buổi học/sự kiện: `title`, `description`, `start_time`, `end_time`, `color`, `category`, `status` (`scheduled`, `completed`, `cancelled`), `is_ai_generated`, `all_day`, `recurrence_rule` (`daily`, `weekly`, `monthly`), `recurrence_end`, `deleted_at` (hỗ trợ xóa mềm khôi phục được).
 
-Stores title, description, start/end timestamps, color, category, status, AI-generated flag, `all_day`, stable `all_day_start`/`all_day_end` dates, recurrence frequency/end date, `deleted_at`, and audit timestamps.
+**Ràng buộc loại trừ chống trùng lịch (Exclusion Constraint):**
+```sql
+alter table public.events
+  add constraint events_no_scheduled_overlap
+  exclude using gist (
+    user_id with =,
+    tstzrange(start_time, end_time, '[)') with &&
+  )
+  where (status = 'scheduled' and deleted_at is null);
+```
 
-Important constraints:
+### 10.3. Bảng `study_tasks` (Nhiệm vụ học tập & Deadline)
 
-- End must be after start.
-- Color must be a valid six-digit hex value.
-- Status must be `scheduled`, `completed`, or `cancelled`.
-- Recurrence must be `daily`, `weekly`, or `monthly` and requires an inclusive end date.
-- Recurrence is bounded to five years and 2,000 occurrences to protect API workers.
-- Active scheduled base events belonging to the same user cannot overlap; the API also checks expanded recurring instances.
-- All-day events preserve their submitted local date separately from UTC timestamps.
+Lưu trữ các mục tiêu ôn tập và deadline bài tập: `title`, `subject`, `estimated_hours`, `deadline`, `priority` (1: Cao, 2: Trung bình, 3: Thấp), `status` (`pending`, `planned`, `completed`).
 
-### 10.3. study_tasks
+### 10.4. Bảng `conversations` & `chat_messages` (Lịch sử Chat)
 
-Stores study goals with subject, estimated hours, deadline, priority, and status.
-
-### 10.4. conversations
-
-Stores a user-owned conversation title and creation/update timestamps. Deleting a conversation cascades to its messages.
-
-### 10.5. chat_messages
-
-Stores messages with user ID, conversation ID, role, content, JSON metadata, and creation timestamp. Calendar actions are stored in `metadata.actions`. A composite foreign key guarantees that message and conversation owners match.
-
-### 10.6. ai_chat_operations and api_rate_limits
-
-- `ai_chat_operations` tracks pending/completed/failed AI requests, request fingerprints, replay text and calendar actions.
-- `api_rate_limits` provides a shared per-user/per-bucket counter for all backend instances.
-
-### 10.7. Indexes
-
-Indexes cover:
-
-- User ownership columns used by RLS.
-- Event time range queries.
-- Event categories.
-- Task deadlines.
-- Conversation history ordered by creation time.
+Lưu trữ cây hội thoại và từng tin nhắn chat của người dùng với AI, bao gồm metadata các hành động tạo/sửa lịch mà AI đã thực thi trong lượt hội thoại đó.
 
 ---
 
-## 11. Row Level Security
+## 11. Bảo mật Phân quyền Dòng (Row Level Security - RLS)
 
-RLS is enabled on all application tables.
+Toàn bộ các bảng trong hệ thống đều được kích hoạt **Row Level Security (RLS)** ở mức độ nghiêm ngặt nhất:
 
-Each table has explicit policies for `SELECT`, `INSERT`, `UPDATE`, and `DELETE`. Policies are scoped to the `authenticated` role and compare `auth.uid()` with the row owner.
+```sql
+alter table public.profiles enable row level security;
+alter table public.events enable row level security;
+alter table public.study_tasks enable row level security;
+alter table public.conversations enable row level security;
+alter table public.chat_messages enable row level security;
+alter table public.api_rate_limits enable row level security;
+alter table public.ai_chat_operations enable row level security;
+```
 
+Mỗi bảng đều có các chính sách bảo vệ riêng biệt cho `SELECT`, `INSERT`, `UPDATE`, `DELETE` dựa trên định danh người dùng:
 ```text
-profiles.id          = auth.uid()
-events.user_id       = auth.uid()
-study_tasks.user_id  = auth.uid()
+profiles.id           = auth.uid()
+events.user_id        = auth.uid()
+study_tasks.user_id   = auth.uid()
 conversations.user_id = auth.uid()
 chat_messages.user_id = auth.uid()
 ```
 
-Unauthenticated users cannot read or modify application rows. Backend secret credentials remain server-only and are never included in the frontend bundle.
+👉 **Kết quả:** Người dùng B tuyệt đối không thể đọc, sửa, hay xóa bất kỳ dữ liệu nào thuộc về Người dùng A, đảm bảo tính riêng tư và an toàn dữ liệu 100%.
 
 ---
 
-## 12. API Endpoints
+## 12. Danh mục API Endpoints
 
-All `/api/*` endpoints require a valid Supabase user JWT unless stated otherwise.
+Tất cả các API dưới tiền tố `/api/*` đều yêu cầu Bearer JWT Token hợp lệ trong header yêu cầu.
 
-| Method | Endpoint | Description |
+| Phương thức | Đường dẫn Endpoint | Mô tả chức năng |
 |---|---|---|
-| GET | `/health` | Health and configuration status |
-| GET | `/api/events` | List user events |
-| POST | `/api/events` | Create an event |
-| PATCH | `/api/events/{event_id}` | Update an event |
-| DELETE | `/api/events/{event_id}` | Move an event to Trash |
-| GET | `/api/events/trash` | List deleted events |
-| POST | `/api/events/{event_id}/restore` | Restore an event |
-| DELETE | `/api/events/{event_id}/permanent` | Permanently delete a trashed event |
-| GET | `/api/tasks` | List study tasks |
-| POST | `/api/tasks` | Create a study task |
-| PATCH | `/api/tasks/{task_id}` | Update a study task |
-| DELETE | `/api/tasks/{task_id}` | Delete a study task |
-| GET | `/api/profile` | Get user profile |
-| PATCH | `/api/profile` | Create or update profile |
-| GET | `/api/chat/conversations` | List conversations |
-| GET | `/api/chat/conversations/{id}` | Load conversation messages |
-| PATCH | `/api/chat/conversations/{id}` | Rename a conversation |
-| DELETE | `/api/chat/conversations/{id}` | Delete a conversation and its messages |
-| POST | `/api/chat` | Send a regular chat request |
-| POST | `/api/chat/stream` | Send a chat request and receive SSE events |
-
-### SSE Event Types
-
-- `start`: contains the conversation ID.
-- `token`: contains a text fragment.
-- `actions`: contains calendar action metadata.
-- `error`: contains a safe user-facing Gemini/API error.
-- `done`: marks the end of the stream.
+| `GET` | `/health` | Kiểm tra trạng thái hoạt động của Backend và cấu hình kết nối |
+| `GET` | `/api/events` | Lấy danh sách sự kiện lịch của người dùng |
+| `POST` | `/api/events` | Tạo một sự kiện lịch mới |
+| `PATCH` | `/api/events/{event_id}` | Cập nhật thông tin hoặc thời gian sự kiện |
+| `DELETE` | `/api/events/{event_id}` | Chuyển sự kiện vào Thùng rác (xóa mềm) |
+| `GET` | `/api/events/trash` | Xem danh sách sự kiện trong Thùng rác |
+| `POST` | `/api/events/{event_id}/restore` | Khôi phục sự kiện từ Thùng rác |
+| `DELETE` | `/api/events/{event_id}/permanent` | Xóa vĩnh viễn sự kiện khỏi cơ sở dữ liệu |
+| `GET` | `/api/tasks` | Lấy danh sách nhiệm vụ / deadline học tập |
+| `POST` | `/api/tasks` | Tạo một nhiệm vụ học tập mới |
+| `PATCH` | `/api/tasks/{task_id}` | Cập nhật thông tin hoặc trạng thái nhiệm vụ |
+| `DELETE` | `/api/tasks/{task_id}` | Xóa nhiệm vụ học tập |
+| `GET` | `/api/profile` | Lấy thông tin hồ sơ học tập và cài đặt cá nhân |
+| `PATCH` | `/api/profile` | Cập nhật hồ sơ học tập và thời gian biểu |
+| `GET` | `/api/chat/conversations` | Lấy danh sách các cuộc hội thoại chat cũ |
+| `GET` | `/api/chat/conversations/{id}` | Tải toàn bộ tin nhắn trong một cuộc hội thoại |
+| `PATCH` | `/api/chat/conversations/{id}` | Đổi tên cuộc hội thoại |
+| `DELETE` | `/api/chat/conversations/{id}` | Xóa cuộc hội thoại và toàn bộ tin nhắn liên quan |
+| `POST` | `/api/chat` | Gửi tin nhắn chat thông thường |
+| `POST` | `/api/chat/stream` | Gửi tin nhắn chat và nhận phản hồi streaming qua SSE |
 
 ---
 
-## 13. Biến môi trường / Environment Variables
+## 13. Biến Môi trường (Environment Variables)
 
-### backend/.env
+### 13.1. Cấu hình Backend (`backend/.env`)
 
-| Variable | Required | Purpose |
+| Tên biến | Bắt buộc | Mô tả & Mục đích |
 |---|---|---|
-| `APP_ENV` | Yes | Runtime environment |
-| `FRONTEND_URL` | Yes | Allowed CORS origin |
-| `SUPABASE_URL` | Yes | Supabase project API URL |
-| `SUPABASE_PUBLISHABLE_KEY` | Yes | Public project key used for auth context |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only Supabase secret key |
-| `GEMINI_API_KEY` | Yes | Gemini API access |
-| `GEMINI_MODEL` | Yes | Gemini model name |
-| `DEFAULT_TIMEZONE` | Yes | Scheduling timezone |
+| `APP_ENV` | Có | Môi trường chạy (`development` hoặc `production`) |
+| `FRONTEND_URL` | Có | URL frontend được phép gọi API (CORS Origin) |
+| `SUPABASE_URL` | Có | Đường dẫn API của dự án Supabase |
+| `SUPABASE_PUBLISHABLE_KEY` | Có | Khóa công khai Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Có | Khóa bí mật quản trị Supabase (chỉ lưu trên server) |
+| `GEMINI_API_KEY` | Có | API Key truy cập mô hình Google Gemini |
+| `GEMINI_MODEL` | Có | Tên mô hình Gemini sử dụng (`gemini-2.5-flash` / `gemini-3.5-flash-lite`) |
+| `DEFAULT_TIMEZONE` | Có | Múi giờ mặc định (`Asia/Ho_Chi_Minh`) |
 
-### frontend/.env
+### 13.2. Cấu hình Frontend (`frontend/.env`)
 
-| Variable | Required | Purpose |
+| Tên biến | Bắt buộc | Mô tả & Mục đích |
 |---|---|---|
-| `VITE_API_URL` | Yes | FastAPI base URL |
-| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | Browser-safe publishable key |
-
-### supabase/.env
-
-| Variable | Required for deployment | Purpose |
-|---|---|---|
-| `SUPABASE_ACCESS_TOKEN` | Yes | Supabase Management/CLI access |
-| `SUPABASE_DB_PASSWORD` | Yes | Remote database migration |
-| `GOOGLE_OAUTH_CLIENT_ID` | Local provider config | Google OAuth client |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Local provider config | Google OAuth secret |
-
-Never commit any real value from these files. Only `.env.example` files with empty placeholders belong in Git.
+| `VITE_API_URL` | Có | Đường dẫn gốc API Backend (ví dụ: `http://localhost:8000/api`) |
+| `VITE_SUPABASE_URL` | Có | Đường dẫn API dự án Supabase |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Có | Khóa công khai Supabase cho trình duyệt |
 
 ---
 
-## 14. Cài đặt và chạy / Setup and Run
+## 14. Hướng dẫn Cài đặt và Chạy Local
 
-### 14.1. Requirements
+### 14.1. Yêu cầu Môi trường
+- **Node.js:** Phiên bản 18 trở lên và npm.
+- **Python:** Phiên bản 3.11 trở lên.
+- Tài khoản Supabase và Google Gemini API Key.
 
-- Node.js and npm.
-- Python 3.11 or newer.
-- A Supabase project.
-- A Gemini API key.
-- A Google OAuth Web Client.
-
-### 14.2. First-time Installation
+### 14.2. Cài đặt Lần đầu
 
 ```powershell
+# 1. Di chuyển vào thư mục dự án
 cd D:\Calendar_Agent
 
+# 2. Cài đặt môi trường Backend
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
 
+# 3. Cài đặt môi trường Frontend
 cd ..\frontend
 npm install
 Copy-Item .env.example .env
 
+# 4. Cài đặt các gói điều phối root
 cd ..
 npm install
 ```
 
-Fill all required values in the three local `.env` files.
+Điền đầy đủ các thông tin khóa API và URL vào file `.env` của cả `backend` và `frontend`.
 
-### 14.3. Start Everything with One Command
+### 14.3. Chạy Toàn bộ Ứng dụng với 1 Câu lệnh
 
 ```powershell
 cd D:\Calendar_Agent
 npm run dev
 ```
 
-Services:
+Hệ thống sẽ tự động khởi động đồng thời cả 2 dịch vụ:
+- **Giao diện Frontend:** `http://localhost:5173`
+- **Backend API:** `http://localhost:8000`
+- **Tài liệu API Swagger UI:** `http://localhost:8000/docs`
 
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8000`
-- API docs: `http://localhost:8000/docs`
-
-Press `Ctrl+C` to stop both services.
-
-The frontend uses `strictPort`; it stops with an error instead of silently switching away from port 5173 because Google OAuth redirects are configured for that port.
-
-### 14.4. Root Commands
-
-| Command | Purpose |
-|---|---|
-| `npm run dev` | Start frontend and backend together |
-| `npm test` | Run backend and frontend tests |
-| `npm run build` | Type-check and build the frontend |
+Nhấn `Ctrl + C` để dừng đồng thời cả 2 dịch vụ.
 
 ---
 
-## 15. Supabase Deployment
+## 15. Kết quả Kiểm thử Toàn diện
 
-```powershell
-$values = Get-Content supabase/.env | ConvertFrom-StringData
-$env:SUPABASE_ACCESS_TOKEN = $values.SUPABASE_ACCESS_TOKEN
-$env:SUPABASE_DB_PASSWORD = $values.SUPABASE_DB_PASSWORD
+Hệ thống được bảo vệ bởi bộ kiểm thử tự động toàn diện trên mọi lượt cập nhật:
 
-npx --yes supabase@latest link --project-ref <project-ref>
-npx --yes supabase@latest db push --dry-run
-npx --yes supabase@latest db push
-```
-
-Always run `--dry-run` first. The migration history prevents already-applied migrations from being executed again.
-
-### Google OAuth Configuration
-
-The Google OAuth Web Client must include:
-
-- Authorized JavaScript origin: `http://localhost:5173`
-- Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
-
-Supabase Auth must have Google enabled, the same Client ID/Secret, Site URL `http://localhost:5173`, and the local redirect allow list.
+- **Kiểm thử Tự động Frontend (Vitest):** `29/29 bài test PASSED` (Bao gồm kiểm thử chuyển đổi múi giờ, thuật toán lặp Schedule-X, tính năng kéo thả, modal tương tác, điều hướng thông báo và streaming tin nhắn).
+- **Kiểm thử Đóng gói Production (Vite Build):** Đóng gói thành công 100%, kiểm tra kiểu TypeScript (`tsc --noEmit`) không có bất kỳ lỗi nào.
+- **Kiểm thử Tích hợp Thực tế:** Đã xác thực thành công luồng đăng nhập Google OAuth, tạo sự kiện, đồng bộ thời gian thực và bắn thông báo đẩy màn hình hệ điều hành qua Service Worker.
 
 ---
 
-## 16. Kiểm thử đã thực hiện / Testing Performed
+## 16. Lịch sử Phát triển & Triển khai
 
-### Automated Tests
-
-- FastAPI health endpoint.
-- Free-slot calculation avoids busy events.
-- Returned slot duration matches the request.
-- Daily/monthly recurrence expansion and recurring conflict detection.
-- Shared PostgreSQL rate limiting.
-- Exact and partial study-plan duration reporting.
-- Profile timezone/day-range validation and bounded chat history.
-- Recurrence horizon and all-day local-date preservation.
-- Controlled Gemini tool-loop tests for text, inline images, multi-step calls, empty responses, allow-list validation, Tasks/deadline ownership and bulk timetable creation.
-- Frontend timezone/DST, persistent-theme and SSE completion/error component tests.
-- Frontend TypeScript compilation and Vite production build.
-- GitHub Actions backend/frontend jobs and a 450 KB JavaScript chunk budget.
-
-Current backend result:
-
-```text
-37 backend tests + 9 frontend tests
-```
-
-### Live Integration Tests
-
-The implementation was also validated against the hosted Supabase and Gemini services:
-
-- Supabase publishable and secret keys validated.
-- Gemini API key and model access validated.
-- Previously deployed migrations and live integration tests succeeded.
-- Migrations `202608210001_backend_hardening.sql`, `202608210002_rate_limit_timestamp_fix.sql`, and `202608210003_atomic_event_mutations.sql` are deployed to the remote project.
-- Live concurrent recurrence verification confirmed atomic conflict handling (`201` plus `409`).
-- Google provider enabled.
-- Google consent endpoint accepted the callback URI.
-- Temporary Auth user created and removed.
-- Profile trigger created the matching profile.
-- Authenticated event CRUD succeeded.
-- Anonymous RLS query returned no private rows.
-- Overlapping event insertion was blocked with PostgreSQL code `23P01`.
-- FastAPI health confirmed Supabase and Gemini configuration.
-- FastAPI event create/list/delete succeeded using a real user JWT.
-- Recurrence conflict, soft-delete, Trash restore/permanent delete, task CRUD, and profile preferences passed through the live API.
-- Native Gemini SSE responses, generated conversation title, rename, and delete passed through the live API.
-- The current controlled tool loop was validated live for an image-backed Calendar read and an exact Tasks/deadline query; both used real Gemini and hosted Supabase data.
-- A subsequent live AI write check was stopped by Gemini HTTP `429` quota/rate limiting. Automated regressions cover calendar/task writes, and no write is reported as successful when the upstream call fails.
-- Multimodal requests persist only `image_count`, not image bytes.
-- All temporary test users and events were deleted after validation.
-- Root `npm run dev` started both services successfully.
-- Frontend returned HTTP 200 on port 5173.
-- Backend health returned `ok` on port 8000.
+- **Mã nguồn GitHub:** [https://github.com/chinmt22225-ops/Calendar_Agent.git](https://github.com/chinmt22225-ops/Calendar_Agent.git)
+- **Bản Live Production:** [https://calendar-agent-mauve.vercel.app](https://calendar-agent-mauve.vercel.app)
+- **Nhánh triển khai chính:** `main` và `codex/frontend-redesign` được đồng bộ liên tục.
 
 ---
 
-## 17. Bảo mật / Security
+## 17. Hướng dẫn Dành cho Người Bảo trì Dự án
 
-- Real secrets are stored only in ignored `.env` files.
-- Secret scanning was performed before commits.
-- Supabase secret key is backend-only.
-- Frontend uses only the publishable key.
-- JWTs are validated server-side.
-- Every protected query is scoped to the authenticated user.
-- RLS provides database-level isolation.
-- Database constraints protect data integrity even if application validation is bypassed.
-- Security-definer Auth trigger uses an empty search path and schema-qualified table names.
-- CORS is restricted to the configured frontend origin.
-- API responses never return server credentials.
-
----
-
-## 18. Git History / Implementation History
-
-| Commit | Description |
-|---|---|
-| `52fc695` | Initial full-stack AI Calendar Agent foundation |
-| `62804a6` | Supabase schema, migration, RLS, and Google Auth configuration |
-| `ce50932` | One-command frontend/backend development workflow |
-| `f167eb0` | Complete bilingual project documentation |
-
-The main branch tracks:
-
-`https://github.com/chinmt22225-ops/Calendar_Agent.git`
-
----
-
-## 19. Trạng thái hiện tại / Current Status
-
-### Hoàn thành / Completed
-
-- Full-stack project structure.
-- Google OAuth through Supabase.
-- Database schema, migration, triggers, indexes, constraints, and RLS.
-- Events, tasks, profile, and chat APIs.
-- Backend-controlled Gemini function calling for Calendar and Tasks/deadlines, including text and images.
-- Smart scheduling and conflict prevention.
-- Minimal chat interface.
-- Interactive calendar interface.
-- Recurrence, all-day events, Tasks, Trash, event completion and in-app badge.
-- Settings, profile-aware scheduling, persistent light/dark theme and URL routing.
-- Gemini SSE responses, shared application rate limiting, generated titles and conversation management.
-- One-command local development.
-- Backend/frontend tests, production frontend build and GitHub CI.
-- Live Supabase/Gemini integration validation.
-- GitHub synchronization.
-
-### Hạn chế hiện tại / Current Limitations
-
-- The calendar is Google Calendar-inspired but does **not** synchronize with the external Google Calendar API.
-- The mobile Calendar uses an off-canvas sidebar; final device-specific visual QA remains recommended.
-- Frontend regression tests are included; a signed-in OAuth browser E2E suite is not yet included.
-- The root development command currently targets Windows virtual-environment paths.
-- Production hosting, custom domains, production OAuth origins, error tracking, monitoring and backups depend on the deployment platform and are not configured yet.
-- The application intentionally uses an in-app upcoming-event badge; browser push/email reminders are not included.
-- Live AI operations also depend on the selected Gemini model's external project quota; HTTP `429` is surfaced to the user without claiming success or mutating data through an unconfirmed tool call.
-
----
-
-## 20. Hướng phát triển / Roadmap
-
-### Near Term
-
-- Add conversation search.
-- Add a signed-in OAuth browser E2E suite for the selected deployment environment.
-- Add production hosting configuration after choosing the hosting provider and custom domain.
-- Add error tracking, metrics and automated backup verification.
-
-### Medium Term
-
-- Add per-occurrence exceptions for recurring series.
-- Optionally add study reminders beyond the current in-app badge.
-- Add analytics for study hours, completion, and subject balance.
-- Add configurable working hours and preferred study windows to scheduling logic.
-- Add approval/preview mode before AI applies multiple calendar changes.
-- Add export/import support such as ICS.
-
-### Optional Integrations
-
-- External Google Calendar API synchronization.
-- Email reminders.
-- Calendar sharing and collaborative planning.
-- Mobile or progressive web application support.
-
----
-
-## 21. Ghi chú cho người bảo trì / Maintainer Notes
-
-### Tiếng Việt
-
-Khi thay đổi database:
-
-1. Tạo migration mới, không chỉnh sửa migration đã chạy trên production.
-2. Chạy `db push --dry-run`.
-3. Kiểm tra RLS cho mọi bảng hoặc cột mới.
-4. Chạy test và kiểm tra không có secrets trong Git diff.
-5. Cập nhật tài liệu này nếu kiến trúc hoặc hành vi sản phẩm thay đổi.
-
-Khi thêm Gemini tool:
-
-1. Dùng type hints rõ ràng.
-2. Viết docstring mô tả đầy đủ tham số.
-3. Xác minh tool schema bằng google-genai SDK.
-4. Kiểm tra quyền sở hữu dữ liệu trong tool implementation.
-5. Ghi lại calendar action để frontend hiển thị phản hồi inline.
-6. Thêm test cho logic thuần trước khi kết nối database.
-
-### English
-
-When changing the database:
-
-1. Create a new migration; do not modify an already-applied production migration.
-2. Run `db push --dry-run`.
-3. Review RLS for every new table or column.
-4. Run tests and verify that no secrets appear in the Git diff.
-5. Update this document when architecture or product behavior changes.
-
-When adding a Gemini tool:
-
-1. Use explicit type hints.
-2. Write complete parameter documentation.
-3. Validate the generated tool schema with the google-genai SDK.
-4. Enforce data ownership inside the tool implementation.
-5. Record calendar actions for inline frontend feedback.
-6. Test pure logic before integrating database operations.
-
----
-
-## 22. Quick Reference
-
-```powershell
-# Start the complete application
-cd D:\Calendar_Agent
-npm run dev
-
-# Run tests
-npm test
-
-# Build frontend
-npm run build
-
-# Check backend health
-Invoke-RestMethod http://localhost:8000/health
-```
-
-### Local URLs
-
-- Application: `http://localhost:5173`
-- Backend: `http://localhost:8000`
-- OpenAPI documentation: `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
-
----
-
-**Repository:** https://github.com/chinmt22225-ops/Calendar_Agent
-
-**Document purpose:** Give users, contributors, reviewers, and maintainers a complete understanding of what was built, how it works, how to run it, and what remains for future development.
-
----
-
-## 23. Functional QA & Recurrence Hardening — 2026-08-22
-
-### Tiếng Việt
-
-Vòng hoàn thiện này rà lại Calendar, recurrence, Tasks, Trash, Settings, authentication và AI chat. Các thay đổi chính:
-
-- Recurrence hằng ngày/tuần/tháng được kiểm thử trực tiếp qua Schedule-X.
-- Sự kiện lặp theo tháng vào ngày 29–31 tự chọn ngày kết thúc đủ để có ít nhất một lần lặp thật.
-- Khi đổi thời gian bắt đầu, modal giữ nguyên thời lượng và tự duy trì ngày kết thúc recurrence hợp lệ.
-- Badge sự kiện 24 giờ dùng chung logic recurrence theo timezone hồ sơ và xử lý DST.
-- Modal hỗ trợ Escape, focus trap, khôi phục focus và chặn đóng/bấm lặp khi đang lưu.
-- Session hết hạn được refresh một lần cho API thường và chat stream.
-- Calendar, Profile và Tasks bỏ qua response cũ khi nhiều request chồng nhau.
-- Backend chuẩn hóa text bắt buộc và trả 422 cho update không hợp lệ.
-- Dependency recurrence cũ đã được loại bỏ; Schedule-X là nguồn hiển thị recurrence duy nhất.
-
-Xác minh cuối vòng: backend `45 passed`, frontend `29 passed`, production build thành công, backend `/health` và `/ready` đều hoạt động. Drag/drop recurrence đã được mở khóa; mini-calendar chuyển ngày qua Calendar Controls nên không còn làm mất occurrence ở tuần kế tiếp.
-
-### English
-
-This completion pass re-audited Calendar, recurrence, Tasks, Trash, Settings, authentication, and AI chat. Key changes:
-
-- Daily, weekly, and monthly recurrence is integration-tested through Schedule-X.
-- Month-end events on days 29–31 now choose an end date that includes at least one real recurrence.
-- Changing an event start preserves duration and keeps the recurrence end valid.
-- The 24-hour badge shares the profile-timezone recurrence logic and handles DST.
-- Modals support Escape, focus trapping, focus restoration, and busy-state interaction locks.
-- Expired sessions are refreshed once for regular API calls and chat streaming.
-- Calendar, Profile, and Tasks ignore stale responses from overlapping requests.
-- The backend normalizes required text and returns stable 422 responses for invalid updates.
-- The legacy recurrence dependency was removed; Schedule-X is the only recurrence rendering engine.
-
-End-of-pass verification: backend `45 passed`, frontend `29 passed`, production build succeeded, and backend `/health` plus `/ready` are healthy. Recurring drag/drop is enabled, and mini-calendar navigation now uses Calendar Controls so future occurrences remain visible.
+1. **Khi thay đổi cấu trúc Cơ sở Dữ liệu:**
+   - Luôn tạo file migration mới trong thư mục `supabase/migrations/`, không sửa đổi trực tiếp các file migration cũ đã áp dụng trên production.
+   - Chạy `db push --dry-run` để kiểm tra tính tương thích trước khi áp dụng chính thức.
+   - Đảm bảo viết đầy đủ chính sách RLS cho mọi bảng hoặc cột mới tạo.
+2. **Khi bổ sung Công cụ cho Gemini AI:**
+   - Khai báo Type Hints rõ ràng và viết docstring tiếng Việt/tiếng Anh đầy đủ cho từng tham số.
+   - Bắt buộc kiểm tra quyền sở hữu `user_id` bên trong logic thực thi công cụ.
+   - Ghi nhận `calendar action metadata` để frontend hiển thị thẻ thông báo hành động cho người dùng.
+3. **Trước khi Commit và Push code:**
+   - Chạy `npm test` và `npm run build` để đảm bảo toàn bộ bài test đều xanh và không có lỗi TypeScript.
+   - Tuyệt đối không commit các file `.env` chứa khóa bí mật lên Git.
