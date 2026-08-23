@@ -1,4 +1,4 @@
-import { Bell, Bot, CalendarDays, ChevronRight, LogOut, Moon, Settings, Sparkles, Sun } from 'lucide-react'
+import { Bell, BellOff, Bot, CalendarDays, ChevronRight, LogOut, Moon, Settings, Sparkles, Sun } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -19,7 +19,7 @@ export function Navbar() {
   const { events, focusEvent } = useCalendar()
   const { profile } = useProfile()
   const { theme, toggleTheme } = useTheme()
-  const { permission, requestBrowserPermission } = useNotification()
+  const { enabled, toggleEnabled, permission, requestBrowserPermission } = useNotification()
   const notify = useToast()
   const location = useLocation()
   const navigate = useSmoothNavigate()
@@ -102,12 +102,34 @@ export function Navbar() {
       </nav>
       <div className="account-menu">
         <div ref={notificationsRef} className="popover-anchor">
-          <button className="icon-button badge-button" aria-label={`${upcoming.length} sự kiện trong 24 giờ tới`} aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setAccountOpen(false) }} title="Sự kiện sắp tới"><Bell size={17} />{upcoming.length > 0 && <span>{upcoming.length > 9 ? '9+' : upcoming.length}</span>}</button>
+          <button
+            className={`icon-button badge-button ${!enabled ? 'is-muted' : ''}`}
+            aria-label={!enabled ? 'Thông báo đang tắt' : `${upcoming.length} sự kiện trong 24 giờ tới`}
+            aria-expanded={notificationsOpen}
+            onClick={() => { setNotificationsOpen((value) => !value); setAccountOpen(false) }}
+            title={!enabled ? 'Thông báo đang tắt (Nhấp để mở)' : 'Sự kiện sắp tới'}
+          >
+            {!enabled ? <BellOff size={17} /> : <Bell size={17} />}
+            {enabled && upcoming.length > 0 && <span>{upcoming.length > 9 ? '9+' : upcoming.length}</span>}
+          </button>
           {notificationsOpen && <section className="header-popover notifications-popover" aria-label="Sự kiện sắp tới">
             <header>
               <div><strong>Sắp tới</strong><small>Trong 24 giờ tới</small></div>
               <span>{upcoming.length}</span>
             </header>
+            <div className="popover-notif-action">
+              <span>{enabled ? '🔔 Nhắc nhở sự kiện:' : '🔕 Nhắc nhở sự kiện:'}</span>
+              <button
+                className={`notif-toggle-btn ${enabled ? 'active' : 'muted'}`}
+                onClick={async () => {
+                  const newState = await toggleEnabled()
+                  notify(newState ? 'Đã bật thông báo nhắc nhở sự kiện.' : 'Đã tắt thông báo nhắc nhở sự kiện.', 'info')
+                }}
+                title={enabled ? 'Nhấp để tắt thông báo' : 'Nhấp để bật thông báo'}
+              >
+                {enabled ? 'Đang bật' : 'Đang tắt'}
+              </button>
+            </div>
             {permission !== 'granted' && (
               <div className="popover-notif-action">
                 <span>Thông báo màn hình:</span>

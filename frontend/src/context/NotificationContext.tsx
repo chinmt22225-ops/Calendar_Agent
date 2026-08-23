@@ -16,13 +16,33 @@ export type ReminderAlert = {
   description?: string | null
 }
 
+export interface NotificationSettings {
+  enabled: boolean
+  soundEnabled: boolean
+  leadTimeMinutes: number
+}
+
 interface NotificationContextType {
+  enabled: boolean
+  soundEnabled: boolean
+  leadTimeMinutes: number
   permission: NotificationPermission
+  toggleEnabled: () => Promise<boolean>
+  setEnabled: (enabled: boolean) => void
+  setSoundEnabled: (soundEnabled: boolean) => void
+  setLeadTimeMinutes: (minutes: number) => void
   requestBrowserPermission: () => Promise<boolean>
 }
 
 const NotificationContext = createContext<NotificationContextType>({
+  enabled: true,
+  soundEnabled: true,
+  leadTimeMinutes: 15,
   permission: 'default',
+  toggleEnabled: async () => true,
+  setEnabled: () => undefined,
+  setSoundEnabled: () => undefined,
+  setLeadTimeMinutes: () => undefined,
   requestBrowserPermission: async () => false,
 })
 
@@ -52,9 +72,59 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const { events, focusEvent } = useCalendar()
   const { profile } = useProfile()
   const navigate = useSmoothNavigate()
+
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   )
+
+  const [enabled, setEnabledState] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('planora_notifications_enabled')
+      return stored !== null ? stored === 'true' : true
+    } catch {
+      return true
+    }
+  })
+
+  const [soundEnabled, setSoundEnabledState] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('planora_sound_enabled')
+      return stored !== null ? stored === 'true' : true
+    } catch {
+      return true
+    }
+  })
+
+  const [leadTimeMinutes, setLeadTimeMinutesState] = useState<number>(() => {
+    try {
+      const stored = localStorage.getItem('planora_lead_time_minutes')
+      return stored ? Math.max(1, parseInt(stored, 10)) : 15
+    } catch {
+      return 15
+    }
+  })
+
+  const setEnabled = useCallback((value: boolean) => {
+    setEnabledState(value)
+    try {
+      localStorage.setItem('planora_notifications_enabled', String(value))
+    } catch {}
+  }, [])
+
+  const setSoundEnabled = useCallback((value: boolean) => {
+    setSoundEnabledState(value)
+    try {
+      localStorage.setItem('planora_sound_enabled', String(value))
+    } catch {}
+  }, [])
+
+  const setLeadTimeMinutes = useCallback((minutes: number) => {
+    setLeadTimeMinutesState(minutes)
+    try {
+      localStorage.setItem('planora_lead_time_minutes', String(minutes))
+    } catch {}
+  }, [])
+
   const notifiedKeysRef = useRef<Set<string>>(new Set())
   const swRegRef = useRef<ServiceWorkerRegistration | null>(null)
 
@@ -114,10 +184,32 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const toggleEnabled = useCallback(async (): Promise<boolean> => {
+    if (!enabled) {
+      // User is turning notifications ON
+      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+        const granted = await requestBrowserPermission()
+        if (!granted) {
+          return false
+        }
+      }
+      setEnabled(true)
+      return true
+    } else {
+      // User is turning notifications OFF
+      setEnabled(false)
+      return false
+    }
+  }, [enabled, requestBrowserPermission, setEnabled])
+
   const triggerDesktopNotification = useCallback(
     (alert: ReminderAlert) => {
-      // 1. Play gentle audio chime
-      playNotificationChime()
+      if (!enabled) return
+
+      // 1. Play gentle audio chime if sound is enabled
+      if (soundEnabled) {
+        playNotificationChime()
+      }
 
       // 2. Native Desktop / OS Notification (shows even if user is on another browser tab or app)
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -159,17 +251,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         } catch {}
       }
     },
-    [focusEvent, navigate]
+    [enabled, focusEvent, navigate, soundEnabled]
   )
 
-  // Periodic Reminder Checker (runs every 30 seconds while tab is open)
+  // Periodic Reminder Checker (runs every 30 seconds while tab is open and enabled)
   useEffect(() => {
+    if (!enabled) return
+
     const timeZone = profile?.timezone || 'Asia/Ho_Chi_Minh'
 
     const checkUpcoming = () => {
       const now = new Date()
-      // Look ahead for events occurring in the next 20 minutes
-      const lookAheadEnd = new Date(now.getTime() + 20 * 60 * 1000)
+      // Look ahead for events occurring in the next window
+      const lookAheadEnd = new Date(now.getTime() + (leadTimeMinutes + 5) * 60 * 1000)
 
       for (const event of events) {
         if (event.status !== 'scheduled' || event.deleted_at) continue
@@ -180,8 +274,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           const diffMinutes = Math.round(diffMs / (60 * 1000))
           const notifyKey = `${event.id}_${occ.toISOString().slice(0, 16)}`
 
-          // Trigger reminder if event is within 15 minutes and has not been notified yet
-          if (diffMinutes >= 0 && diffMinutes <= 15 && !notifiedKeysRef.current.has(notifyKey)) {
+          // Trigger reminder if event is within lead time and has not been notified yet
+          if (diffMinutes >= 0 && diffMinutes <= leadTimeMinutes && !notifiedKeysRef.current.has(notifyKey)) {
             notifiedKeysRef.current.add(notifyKey)
             saveNotifiedKeys()
 
@@ -206,12 +300,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     const interval = window.setInterval(checkUpcoming, 30_000)
     return () => window.clearInterval(interval)
-  }, [events, profile?.timezone, saveNotifiedKeys, triggerDesktopNotification])
+  }, [enabled, events, leadTimeMinutes, profile?.timezone, saveNotifiedKeys, triggerDesktopNotification])
 
   return (
     <NotificationContext.Provider
       value={{
+        enabled,
+        soundEnabled,
+        leadTimeMinutes,
         permission,
+        toggleEnabled,
+        setEnabled,
+        setSoundEnabled,
+        setLeadTimeMinutes,
         requestBrowserPermission,
       }}
     >

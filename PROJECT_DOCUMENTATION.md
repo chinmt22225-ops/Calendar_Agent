@@ -90,7 +90,10 @@ Data is isolated per account with Supabase Auth and PostgreSQL Row Level Securit
 - **Trục tung thời gian 24 giờ liên tục (00:00 - 24:00)** với chiều cao lưới rộng rãi 1680px (~70px/giờ) và tự động cuộn nhẹ đến khung giờ ban ngày (~07:00-08:00) khi khởi động.
 - **Vạch chỉ thời gian thực (Real-time Current Time Indicator)**: Vạch đỏ hồng kèm chấm tròn phát sáng đa tầng ở trục giờ, tự động cập nhật vị trí từng phút theo múi giờ `Asia/Ho_Chi_Minh` chuẩn Google Calendar.
 - **Kéo thả và Resize mượt mà**: Di chuyển sự kiện xuyên suốt tất cả các ngày trong tuần mà không bị cắt viền (`overflow: visible`), bước nhảy 15 phút (15-min snap), thẻ mờ đối chiếu vị trí ban đầu (ghost card) và tay nắm kéo giãn cạnh đáy tiện lợi.
-- **Hệ thống thông báo đẩy Desktop (OS-level Notification qua Service Worker `sw.js`)**: Nhắc nhở trước 15 phút ngay cả khi người dùng đang lướt web ở tab khác hoặc thu nhỏ trình duyệt, kèm âm thanh chuông báo tinh tế và cơ chế click-to-focus chuyển ngay đến sự kiện trên Lịch.
+- **Hệ thống thông báo đẩy Desktop (OS-level Notification qua Service Worker `sw.js`)**: Nhắc nhở trước khi sự kiện bắt đầu ngay cả khi người dùng đang lướt web ở tab khác hoặc thu nhỏ trình duyệt, kèm âm thanh chuông báo tinh tế và cơ chế click-to-focus chuyển ngay đến sự kiện trên Lịch.
+- **Tính năng Bật/Tắt & Tùy biến thông báo toàn diện**:
+  - Nút bật/tắt nhanh thông báo sự kiện trực tiếp ngay trên menu Chuông (Navbar) với biểu tượng `BellOff` khi tắt.
+  - Mục **Cài đặt Thông báo & Nhắc nhở** trong Settings Modal: Công tắc Bật/Tắt nhắc nhở sự kiện, Công tắc Bật/Tắt âm thanh chuông báo (Chime), và Danh sách chọn thời gian nhắc trước (5, 10, 15, 30 phút). Lựa chọn được lưu bền vững trên trình duyệt qua `localStorage`.
 - **Hiệu ứng Spotlight phát sáng đa tầng (Direct DOM Pulse & Glow)**: Làm nổi bật sự kiện trong 2.8 giây khi chuyển từ thông báo mà không kích hoạt render lại Schedule-X (Zero Re-render), loại bỏ hoàn toàn hiện tượng chớp/load lại.
 - **Menu chọn chế độ xem nâng cao (`z-index: 100`)**: Hiển thị đè lên toàn bộ thanh tiêu đề ngày sticky một cách liền mạch, bo góc 12px chuẩn thiết kế hiện đại.
 - Tạo sự kiện bằng nút “Tạo mới” hoặc chọn ô thời gian trống.

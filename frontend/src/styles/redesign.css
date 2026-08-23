@@ -530,6 +530,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .danger-button { border-color: var(--pl-error-600); background: var(--pl-error-600); }
 .toast { border-color: color-mix(in srgb, var(--pl-error-600) 24%, var(--pl-line)); color: var(--pl-error-600); background: var(--pl-error-50); box-shadow: var(--pl-shadow-md); }
 .toast.success { border-color: color-mix(in srgb, var(--pl-success-600) 24%, var(--pl-line)); color: var(--pl-success-600); background: var(--pl-success-50); }
+.toast.info { border-color: color-mix(in srgb, var(--pl-brand-500) 24%, var(--pl-line)); color: var(--pl-brand-500); background: color-mix(in srgb, var(--pl-brand-500) 10%, var(--pl-surface)); }
 .header-popover { border-color: var(--pl-line); background: var(--pl-surface); box-shadow: var(--pl-shadow-md); }
 .header-popover { transform-origin: top right; animation: popover-in 130ms var(--pl-ease); }
 @keyframes popover-in { from { opacity: .72; transform: translateY(-3px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -670,7 +671,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: var(--pl-brand-500);
   font-size: 11px;
   font-weight: 650;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 120ms ease;
@@ -679,6 +680,120 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .popover-notif-action button:hover {
   background: var(--pl-brand-500);
   color: #fff;
+}
+
+.notif-toggle-btn.active {
+  background: color-mix(in srgb, var(--pl-brand-500) 22%, transparent) !important;
+  color: var(--pl-brand-500) !important;
+  border: 1px solid color-mix(in srgb, var(--pl-brand-500) 40%, transparent) !important;
+  font-weight: 700 !important;
+}
+.notif-toggle-btn.active:hover {
+  background: var(--pl-brand-500) !important;
+  color: #fff !important;
+}
+
+.notif-toggle-btn.muted {
+  background: var(--pl-surface-muted, rgba(255, 255, 255, 0.08)) !important;
+  color: var(--pl-ink-muted, #8e8794) !important;
+  border: 1px solid var(--pl-line, rgba(255, 255, 255, 0.12)) !important;
+  font-weight: 600 !important;
+}
+.notif-toggle-btn.muted:hover {
+  background: var(--pl-surface-soft) !important;
+  color: var(--pl-ink-strong) !important;
+}
+
+.icon-button.badge-button.is-muted {
+  opacity: 0.65;
+  color: var(--pl-ink-muted);
+}
+.icon-button.badge-button.is-muted:hover {
+  opacity: 1;
+  color: var(--pl-brand-500);
+}
+
+/* ==========================================================================
+   Settings Notification Toggles & Switches
+   ========================================================================== */
+.settings-toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--pl-surface-muted, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--pl-line, rgba(255, 255, 255, 0.08));
+  transition: all 120ms ease;
+}
+
+.settings-toggle-row:hover {
+  border-color: var(--pl-line-strong, rgba(255, 255, 255, 0.16));
+}
+
+.toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggle-info span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 680;
+  color: var(--pl-ink-strong);
+}
+
+.toggle-info small {
+  font-size: 11px;
+  color: var(--pl-ink-muted);
+}
+
+/* Planora Switch Component */
+.planora-switch {
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--pl-surface-soft, rgba(255, 255, 255, 0.16));
+  border: 1px solid var(--pl-line-strong, rgba(255, 255, 255, 0.2));
+  position: relative;
+  cursor: pointer;
+  padding: 2px;
+  flex-shrink: 0;
+  transition: background-color 160ms var(--pl-ease), border-color 160ms var(--pl-ease);
+}
+
+.planora-switch .switch-handle {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+  transform: translateX(0);
+  transition: transform 160ms var(--pl-ease);
+}
+
+.planora-switch.active {
+  background: var(--pl-brand-500, #ea4c78);
+  border-color: var(--pl-brand-600, #d93662);
+}
+
+.planora-switch.active .switch-handle {
+  transform: translateX(20px);
+}
+
+.planora-switch:focus-visible {
+  outline: 2px solid var(--pl-brand-400);
+  outline-offset: 2px;
 }
 
 

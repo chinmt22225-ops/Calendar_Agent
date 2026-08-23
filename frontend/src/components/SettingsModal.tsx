@@ -1,6 +1,7 @@
-import { Clock3, LogOut, Monitor, Moon, Settings, Sun, X } from 'lucide-react'
+import { Bell, Clock3, LogOut, Monitor, Moon, Settings, Sun, Volume2, VolumeX, X } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useNotification } from '../context/NotificationContext'
 import { useProfile } from '../context/ProfileContext'
 import { useTheme, type ThemePreference } from '../context/ThemeContext'
 import { useToast } from '../context/ToastContext'
@@ -20,6 +21,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { profile, saveProfile } = useProfile()
   const { signOut } = useAuth()
   const { preference, setPreference } = useTheme()
+  const {
+    enabled,
+    soundEnabled,
+    leadTimeMinutes,
+    toggleEnabled,
+    setSoundEnabled,
+    setLeadTimeMinutes,
+  } = useNotification()
   const notify = useToast()
   const [draft, setDraft] = useState<ProfileUpdate>({})
   const [saving, setSaving] = useState(false)
@@ -28,6 +37,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const titleId = useId()
   const descriptionId = useId()
   const modalRef = useModalA11y(true, onClose, saving || signingOut)
+
   useEffect(() => {
     if (profile) setDraft({
       display_name: profile.display_name || '', timezone: profile.timezone,
@@ -51,14 +61,25 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       return
     }
     setSaving(true)
-    try { await saveProfile({ ...draft, display_name: draft.display_name?.trim() || null }); notify('Đã lưu cài đặt.', 'success') }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Không thể lưu cài đặt.') }
-    finally { setSaving(false) }
+    try {
+      await saveProfile({ ...draft, display_name: draft.display_name?.trim() || null })
+      notify('Đã lưu cài đặt.', 'success')
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Không thể lưu cài đặt.')
+    } finally {
+      setSaving(false)
+    }
   }
+
   const logout = async () => {
-    setError(''); setSigningOut(true)
-    try { await signOut() }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Không thể đăng xuất.'); setSigningOut(false) }
+    setError('')
+    setSigningOut(true)
+    try {
+      await signOut()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Không thể đăng xuất.')
+      setSigningOut(false)
+    }
   }
 
   const themes: { value: ThemePreference; label: string; description: string; icon: typeof Sun }[] = [
@@ -70,23 +91,106 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !saving && !signingOut && onClose()}>
       <section ref={modalRef} className="settings-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1}>
-        <header><div><span className="modal-icon"><Settings size={20} /></span><div><h2 id={titleId}>Cài đặt</h2><p id={descriptionId}>Cá nhân hóa Planora theo nhịp học của bạn</p></div></div><button disabled={saving || signingOut} aria-label="Đóng cài đặt" title="Đóng" onClick={onClose}><X size={19} /></button></header>
+        <header>
+          <div>
+            <span className="modal-icon"><Settings size={20} /></span>
+            <div>
+              <h2 id={titleId}>Cài đặt</h2>
+              <p id={descriptionId}>Cá nhân hóa Planora theo nhịp học của bạn</p>
+            </div>
+          </div>
+          <button disabled={saving || signingOut} aria-label="Đóng cài đặt" title="Đóng" onClick={onClose}><X size={19} /></button>
+        </header>
         <div className="modal-body">
+          {/* Giao diện */}
           <section className="settings-section">
             <div className="settings-section-heading"><h3>Giao diện</h3><p>Lựa chọn được lưu trên thiết bị này.</p></div>
             <div className="theme-options" role="radiogroup" aria-label="Chọn giao diện">
-              {themes.map(({ value, label, description, icon: Icon }) => <button key={value} role="radio" aria-checked={preference === value} className={preference === value ? 'active' : ''} onClick={() => setPreference(value)}><Icon size={18} /><span><strong>{label}</strong><small>{description}</small></span></button>)}
+              {themes.map(({ value, label, description, icon: Icon }) => (
+                <button key={value} role="radio" aria-checked={preference === value} className={preference === value ? 'active' : ''} onClick={() => setPreference(value)}>
+                  <Icon size={18} />
+                  <span><strong>{label}</strong><small>{description}</small></span>
+                </button>
+              ))}
             </div>
           </section>
+
+          {/* Thông báo & Nhắc nhở */}
+          <section className="settings-section">
+            <div className="settings-section-heading">
+              <h3>Thông báo & Nhắc nhở</h3>
+              <p>Tùy chỉnh thông báo đẩy hệ thống cho các sự kiện sắp tới.</p>
+            </div>
+            <div className="settings-toggle-list">
+              <div className="settings-toggle-row">
+                <div className="toggle-info">
+                  <span><Bell size={16} /> Nhắc nhở sự kiện</span>
+                  <small>Bắn thông báo màn hình khi sắp đến giờ học / sự kiện</small>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={enabled}
+                  className={`planora-switch ${enabled ? 'active' : ''}`}
+                  onClick={async () => {
+                    const newState = await toggleEnabled()
+                    notify(newState ? 'Đã bật thông báo sự kiện.' : 'Đã tắt thông báo sự kiện.', 'info')
+                  }}
+                  title={enabled ? 'Đang bật - Nhấp để tắt' : 'Đang tắt - Nhấp để bật'}
+                >
+                  <span className="switch-handle" />
+                </button>
+              </div>
+
+              <div className="settings-toggle-row">
+                <div className="toggle-info">
+                  <span>{soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />} Âm thanh chuông báo</span>
+                  <small>Phát âm thanh nhẹ khi có thông báo nhắc nhở</small>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={soundEnabled}
+                  className={`planora-switch ${soundEnabled ? 'active' : ''}`}
+                  onClick={() => {
+                    setSoundEnabled(!soundEnabled)
+                    notify(!soundEnabled ? 'Đã bật âm thanh thông báo.' : 'Đã tắt âm thanh thông báo.', 'info')
+                  }}
+                  title={soundEnabled ? 'Đang bật - Nhấp để tắt' : 'Đang tắt - Nhấp để bật'}
+                >
+                  <span className="switch-handle" />
+                </button>
+              </div>
+            </div>
+
+            <label className="field" style={{ marginTop: '12px' }}>
+              <span><Clock3 size={14} /> Thời gian nhắc trước sự kiện</span>
+              <select
+                value={leadTimeMinutes}
+                onChange={(e) => {
+                  const val = Number(e.target.value)
+                  setLeadTimeMinutes(val)
+                  notify(`Sẽ nhắc nhở trước ${val} phút khi sự kiện bắt đầu.`, 'info')
+                }}
+              >
+                <option value={5}>Trước 5 phút</option>
+                <option value={10}>Trước 10 phút</option>
+                <option value={15}>Trước 15 phút (Khuyên dùng)</option>
+                <option value={30}>Trước 30 phút</option>
+              </select>
+            </label>
+          </section>
+
+          {/* Hồ sơ học tập */}
           <section className="settings-section">
             <div className="settings-section-heading"><h3>Hồ sơ học tập</h3><p>Planora dùng thông tin này khi tìm giờ trống và lập kế hoạch.</p></div>
-          <label className="field"><span>Tên hiển thị</span><input maxLength={100} value={draft.display_name || ''} onChange={(e) => setDraft({ ...draft, display_name: e.target.value })} placeholder="Tên của bạn" /></label>
-          <label className="field"><span>Múi giờ</span><select value={draft.timezone || 'Asia/Ho_Chi_Minh'} onChange={(e) => setDraft({ ...draft, timezone: e.target.value })}>{timezones.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <div className="field-row">
-            <label className="field"><span><Clock3 size={14} /> Bắt đầu ngày học</span><input type="time" value={draft.day_start || ''} onChange={(e) => setDraft({ ...draft, day_start: e.target.value })} /></label>
-            <label className="field"><span><Clock3 size={14} /> Kết thúc ngày học</span><input type="time" value={draft.day_end || ''} onChange={(e) => setDraft({ ...draft, day_end: e.target.value })} /></label>
-          </div>
-          <label className="field"><span>Thời lượng Pomodoro: {draft.pomodoro_minutes || 50} phút</span><input type="range" min="15" max="120" step="5" value={draft.pomodoro_minutes || 50} onChange={(e) => setDraft({ ...draft, pomodoro_minutes: Number(e.target.value) })} /></label>
+            <label className="field"><span>Tên hiển thị</span><input maxLength={100} value={draft.display_name || ''} onChange={(e) => setDraft({ ...draft, display_name: e.target.value })} placeholder="Tên của bạn" /></label>
+            <label className="field"><span>Múi giờ</span><select value={draft.timezone || 'Asia/Ho_Chi_Minh'} onChange={(e) => setDraft({ ...draft, timezone: e.target.value })}>{timezones.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <div className="field-row">
+              <label className="field"><span><Clock3 size={14} /> Bắt đầu ngày học</span><input type="time" value={draft.day_start || ''} onChange={(e) => setDraft({ ...draft, day_start: e.target.value })} /></label>
+              <label className="field"><span><Clock3 size={14} /> Kết thúc ngày học</span><input type="time" value={draft.day_end || ''} onChange={(e) => setDraft({ ...draft, day_end: e.target.value })} /></label>
+            </div>
+            <label className="field"><span>Thời lượng Pomodoro: {draft.pomodoro_minutes || 50} phút</span><input type="range" min="15" max="120" step="5" value={draft.pomodoro_minutes || 50} onChange={(e) => setDraft({ ...draft, pomodoro_minutes: Number(e.target.value) })} /></label>
           </section>
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="settings-logout" disabled={saving || signingOut} onClick={() => void logout()}><LogOut size={16} /> {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất khỏi tài khoản'}</button>

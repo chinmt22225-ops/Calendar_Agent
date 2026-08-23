@@ -20,6 +20,7 @@ See [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for the complete biling
 - Vạch theo dõi thời gian thực (Real-time Current Time Indicator) với chấm tròn phát sáng đa tầng chuẩn Google Calendar, tự động cập nhật từng phút theo múi giờ.
 - Kéo thả mượt mà xuyên suốt các ngày trong tuần (15-min snap, ghost card đối chiếu) và tay nắm thay đổi thời lượng (resize handle) tiện lợi.
 - Hệ thống thông báo đẩy màn hình hệ điều hành (Desktop Notifications qua Service Worker `sw.js` ngầm), hoạt động cả khi đang mở tab khác hoặc thu nhỏ trình duyệt, kèm âm thanh chuông báo tinh tế và điều hướng 1-click chuyển đến sự kiện trên lịch.
+- Tính năng Bật/Tắt thông báo tức thì ngay trên menu Chuông (Navbar) và bảng Cài đặt chi tiết (Bật/tắt thông báo, Bật/tắt âm thanh chuông, Tùy chỉnh thời gian nhắc trước 5/10/15/30 phút).
 - Hiệu ứng Spotlight phát sáng đa tầng trực tiếp tại DOM (Zero Re-render) trỏ vào sự kiện khi chuyển từ thông báo.
 - Lọc lịch theo môn học/danh mục và đồng bộ dữ liệu tức thời giữa Chat và Calendar.
 - Kiểm tra xung đột thời gian ở cả REST API và công cụ AI.
