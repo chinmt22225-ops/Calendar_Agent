@@ -1,8 +1,8 @@
-import { CalendarPlus, Check, PanelLeftClose, PanelLeftOpen, Plus, Trash2, X } from 'lucide-react'
+import { CalendarPlus, Check, PanelLeftClose, PanelLeftOpen, Plus, Sparkles, Trash2, X } from 'lucide-react'
 import { MiniCalendar } from './MiniCalendar'
 import { TaskPanel } from './TaskPanel'
 
-export function CalendarSidebar({ categories, categoryColors, visible, selectedDate, collapsed, mobileOpen, onDateChange, onToggle, onCreate, onOpenTrash, onToggleCollapsed, onCloseMobile }: {
+export function CalendarSidebar({ categories, categoryColors, visible, selectedDate, collapsed, mobileOpen, onDateChange, onToggle, onCreate, onOpenTrash, onToggleCollapsed, onCloseMobile, onAiPlan }: {
   categories: string[]
   categoryColors: Record<string, string>
   visible: Set<string>
@@ -15,12 +15,16 @@ export function CalendarSidebar({ categories, categoryColors, visible, selectedD
   onOpenTrash: () => void
   onToggleCollapsed: () => void
   onCloseMobile: () => void
+  onAiPlan?: () => void
 }) {
   return (
     <aside className={`calendar-sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
       <div className="calendar-sidebar-head"><button className="sidebar-collapse" aria-label={collapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'} title={collapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'} onClick={onToggleCollapsed}>{collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}</button><button className="mobile-sidebar-close" aria-label="Đóng thanh bên" onClick={onCloseMobile}><X size={18} /></button></div>
-      {collapsed ? <div className="calendar-sidebar-rail"><button aria-label="Tạo sự kiện" title="Tạo sự kiện" onClick={onCreate}><CalendarPlus size={19} /></button><button aria-label="Mở Thùng rác" title="Thùng rác" onClick={onOpenTrash}><Trash2 size={18} /></button></div> : <>
-      <button className="create-event" onClick={onCreate}><Plus size={20} /> Tạo sự kiện</button>
+      {collapsed ? <div className="calendar-sidebar-rail"><button aria-label="Tạo sự kiện" title="Tạo sự kiện" onClick={onCreate}><CalendarPlus size={19} /></button>{onAiPlan && <button aria-label="Lập kế hoạch AI" title="Lập kế hoạch AI" onClick={onAiPlan}><Sparkles size={18} /></button>}<button aria-label="Mở Thùng rác" title="Thùng rác" onClick={onOpenTrash}><Trash2 size={18} /></button></div> : <>
+      <div className="sidebar-action-buttons">
+        <button className="create-event" onClick={onCreate}><Plus size={18} /> Tạo sự kiện</button>
+        {onAiPlan && <button className="ai-plan-sidebar-btn" onClick={onAiPlan}><Sparkles size={16} /> Lập kế hoạch AI</button>}
+      </div>
       <MiniCalendar selectedDate={selectedDate} onSelect={onDateChange} />
       <section className="calendar-filters">
         <div><h3>Lịch của tôi</h3><button onClick={() => categories.forEach((item) => !visible.has(item) && onToggle(item))}>Hiện tất cả</button></div>

@@ -127,7 +127,7 @@ function ScheduleCalendar({ events, selectedDate, timeZone, theme, onSelectedDat
     isResponsive: false,
     isDark: theme === 'dark',
     weekOptions: {
-      gridHeight: 1680,
+      gridHeight: 1200,
       nDays: 7,
       eventWidth: 94,
       gridStep: 30,
@@ -184,7 +184,7 @@ function ScheduleCalendar({ events, selectedDate, timeZone, theme, onSelectedDat
     const timer = setTimeout(() => {
       const viewContainer = document.querySelector('.sx__view-container')
       if (viewContainer && viewContainer.scrollTop === 0) {
-        viewContainer.scrollTop = 480
+        viewContainer.scrollTop = 350
       }
     }, 160)
     return () => clearTimeout(timer)
@@ -297,13 +297,14 @@ export function CalendarView() {
     <CalendarSidebar categories={categories} categoryColors={categoryColors} visible={visible} selectedDate={selectedDate} collapsed={sidebarCollapsed} mobileOpen={mobileSidebarOpen}
       onDateChange={(date) => { setSelectedDate(date); setMobileSidebarOpen(false) }}
       onToggle={(category) => setVisible((current) => { const next = new Set(current); next.has(category) ? next.delete(category) : next.add(category); return next })}
-      onCreate={() => openCreate()} onOpenTrash={() => { setTrashOpen(true); setMobileSidebarOpen(false) }} onToggleCollapsed={() => setSidebarCollapsed((value) => !value)} onCloseMobile={() => setMobileSidebarOpen(false)} />
+      onCreate={() => openCreate()} onOpenTrash={() => { setTrashOpen(true); setMobileSidebarOpen(false) }} onToggleCollapsed={() => setSidebarCollapsed((value) => !value)} onCloseMobile={() => setMobileSidebarOpen(false)}
+      onAiPlan={() => navigate('/chat')} />
     {mobileSidebarOpen && <button className="mobile-sidebar-scrim" aria-label="Đóng thanh bên" onClick={() => setMobileSidebarOpen(false)} />}
     <section className="calendar-main">
-      <div className="calendar-commandbar">
+      <div className="mobile-calendar-bar">
         <button className="mobile-calendar-menu" aria-label="Mở thanh bên" onClick={() => setMobileSidebarOpen(true)}><Menu size={19} /></button>
-        <span><strong>Lịch học của bạn</strong><small>{timeZone}</small></span>
-        <button className="ai-plan-button" onClick={() => navigate('/chat')}><Sparkles size={15} /> Lập kế hoạch với AI</button>
+        <span>Lịch học ({timeZone})</span>
+        <button className="ai-plan-button-compact" onClick={() => navigate('/chat')}><Sparkles size={14} /> AI</button>
       </div>
       <div className="calendar-grid-wrap schedule-x-wrap">
         {(loading || profileLoading || interactionLoading) && <span className="calendar-loading"><LoaderCircle className="spin" size={20} /> {interactionLoading ? 'Đang đồng bộ...' : 'Đang tải lịch...'}</span>}
