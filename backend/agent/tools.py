@@ -126,10 +126,20 @@ class CalendarTools:
         return result["events"][0]
 
     def create_calendar_events(self, events: list[ToolEvent]) -> dict:
-        """Create one or more non-overlapping calendar events.
+        """Thêm một hoặc nhiều sự kiện vào lịch trong cơ sở dữ liệu (tối đa 50 sự kiện).
+        BẮT BUỘC SỬ DỤNG CÔNG CỤ NÀY khi người dùng muốn thêm thời khóa biểu từ ảnh, thêm lịch học kỳ, hoặc tạo nhiều môn học.
 
         Args:
-            events: Events with title, ISO times, category, color and optional recurrence.
+            events: Danh sách các sự kiện. Mỗi sự kiện bắt buộc gồm:
+                - title: Tên sự kiện / môn học (VD: 'Xác suất thống kê (LT)')
+                - start_time: Thời gian bắt đầu ISO có múi giờ (VD: '2026-09-28T07:30:00+07:00')
+                - end_time: Thời gian kết thúc ISO có múi giờ (VD: '2026-09-28T11:00:00+07:00')
+                - description: Ghi chú, phòng học, mã lớp (VD: 'Phòng cs2:PMT_NĐH4.3')
+                - category: Danh mục / Tên môn (VD: 'Học tập', 'Xác suất thống kê')
+                - color: Mã màu hex (VD: '#2563eb', '#e11d48', '#059669', '#d97706')
+                - all_day: False cho các tiết học có giờ cụ thể
+                - recurrence_rule: 'weekly' nếu lặp hàng tuần, 'daily' nếu lặp hàng ngày, hoặc None
+                - recurrence_end: Ngày kết thúc lặp định dạng YYYY-MM-DD (VD: '2027-01-17')
         """
         if not events:
             return {"error": "Danh sách sự kiện đang trống."}
